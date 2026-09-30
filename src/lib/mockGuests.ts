@@ -1,0 +1,61 @@
+import type { Guest } from "@/types/guest";
+
+export function createDemoGuests(): Guest[] {
+  return [
+    {
+      id: "demo-guest-1",
+      name: "משפחת אברהמי",
+      phone: "050-1234567",
+      category: "משפחה",
+      partySize: 4,
+      seatingAssignment: { kind: "table", id: "table-1" },
+      arrived: false,
+      rsvpStatus: "confirmed",
+      contactCount: 1,
+    },
+    {
+      id: "demo-guest-2",
+      name: "רועי ודנה שמעוני",
+      phone: "052-2345678",
+      category: "חברים",
+      partySize: 2,
+      seatingAssignment: { kind: "table", id: "table-2" },
+      arrived: true,
+      rsvpStatus: "confirmed",
+      contactCount: 2,
+    },
+    {
+      id: "demo-guest-3",
+      name: "אלון פרץ",
+      phone: "054-3456789",
+      category: "עבודה",
+      partySize: 1,
+      seatingAssignment: { kind: "table", id: "table-3" },
+      arrived: false,
+      rsvpStatus: "confirmed",
+      contactCount: 1,
+    },
+    {
+      id: "demo-guest-4",
+      name: "משפחת גולדברג",
+      phone: "053-4567890",
+      category: "משפחה",
+      partySize: 5,
+      seatingAssignment: { kind: "table", id: "table-1" },
+      arrived: true,
+      rsvpStatus: "confirmed",
+      contactCount: 1,
+    },
+    {
+      id: "demo-guest-5",
+      name: "מאיה כספי",
+      phone: "058-5678901",
+      category: "חברים",
+      partySize: 1,
+      seatingAssignment: { kind: "table", id: "table-4" },
+      arrived: false,
+      rsvpStatus: "confirmed",
+      contactCount: 3,
+    },
+  ];
+}
