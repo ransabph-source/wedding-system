@@ -25,12 +25,14 @@ export default function AppHeader({ coupleId, coupleName }: AppHeaderProps) {
         </div>
         <div className="absolute inset-y-0 end-4 flex items-center gap-4 sm:end-8">
           <AdminModeToggle />
-          <Link
-            href="/"
-            className="text-sm font-medium text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-            יציאה
-          </Link>
+          <form action="/auth/signout" method="post">
+            <button
+              type="submit"
+              className="text-sm font-medium text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              יציאה
+            </button>
+          </form>
         </div>
 
         <Link

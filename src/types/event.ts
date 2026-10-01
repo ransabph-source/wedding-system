@@ -6,4 +6,17 @@ export type EventPhase =
   | "LIVE"
   | "POST_EVENT";
 
-export type UserRole = "admin" | "couple" | "hostess" | null;
+// The signed-in user's role, or null when signed out.
+export type UserRole = "admin" | "couple" | "staff" | null;
+
+export interface EventRecord {
+  id: string;
+  coupleNames: string;
+  eventDate: string;
+  venue: string;
+  // Contact phone; empty if unknown.
+  phone: string;
+  guestsInvited: number;
+  status: "planning" | "confirmed" | "completed";
+  phase: EventPhase;
+}

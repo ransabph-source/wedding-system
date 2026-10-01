@@ -7,18 +7,22 @@ import {
   LiveSummaryTiles,
 } from "@/components/LiveEventDashboard";
 import ReadOnlySeatingMap from "@/components/ReadOnlySeatingMap";
-import { useEventEngine } from "@/lib/eventEngine";
-import { getEventById } from "@/lib/mockEvents";
-import { DEFAULT_TABLES } from "@/lib/seatingTables";
+import EventDataStatus from "@/components/EventDataStatus";
+import { useEventData, useEventEngine } from "@/lib/eventEngine";
 
 export default function LiveCheckInPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const event = getEventById(id);
-  const { getGuests, setGuests } = useEventEngine();
+  // Polls so check-ins made on other devices (e.g. guests' own phones via the
+  // self check-in QR) show up on the hostess screen.
+  const dataStatus = useEventData(id, { refreshIntervalMs: 5000 });
+  const { getEvent, getGuests, setGuests, getTables, getZones } =
+    useEventEngine();
+  const event = getEvent(id);
   const [searchQuery, setSearchQuery] = useState("");
 
   const guests = getGuests(id);
+  const tables = getTables(id);
 
   function handleToggleArrived(guestId: string) {
     setGuests(id, (prev) =>
@@ -29,6 +33,8 @@ export default function LiveCheckInPage() {
       ),
     );
   }
+
+  if (dataStatus !== "ready") return <EventDataStatus status={dataStatus} />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 pb-20">
@@ -48,8 +54,8 @@ export default function LiveCheckInPage() {
           </div>
           <button
             type="button"
-            onClick={() => router.push("/")}
-            aria-label="יציאה"
+            onClick={() => router.push("/live")}
+            aria-label="חזרה לבחירת אירוע"
             className="grid h-14 w-14 min-h-[56px] min-w-[56px] place-items-center rounded-full text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6">
@@ -75,13 +81,13 @@ export default function LiveCheckInPage() {
       <main className="mx-auto max-w-7xl px-4 pt-8 md:px-6">
         
         <div className="mb-8">
-          <LiveSummaryTiles guests={guests} tables={DEFAULT_TABLES} />
+          <LiveSummaryTiles guests={guests} tables={tables} />
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           <LiveGuestCards
             guests={guests}
-            tables={DEFAULT_TABLES}
+            tables={tables}
             searchQuery={searchQuery}
             onToggleArrived={handleToggleArrived}
           />
@@ -92,8 +98,8 @@ export default function LiveCheckInPage() {
             מפת הושבה (לצפייה בלבד)
           </h2>
           <ReadOnlySeatingMap
-            tables={DEFAULT_TABLES}
-            zones={[]}
+            tables={tables}
+            zones={getZones(id)}
             guests={guests}
           />
         </div>

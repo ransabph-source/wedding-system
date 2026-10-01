@@ -1,4 +1,6 @@
 import type { Viewport } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -7,6 +9,11 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-export default function LiveLayout({ children }: LayoutProps<"/live/[id]">) {
+export default async function LiveLayout({
+  children,
+}: LayoutProps<"/live/[id]">) {
+  // The hostess screen is for staff and admins.
+  const user = await getCurrentUser();
+  if (user?.role !== "staff" && user?.role !== "admin") redirect("/login");
   return children;
 }

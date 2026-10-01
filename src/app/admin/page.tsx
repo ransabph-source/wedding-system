@@ -9,29 +9,10 @@ import {
   PHASE_LABELS,
   PHASE_ORDER,
 } from "@/lib/eventPhaseRules";
-import { MOCK_EVENTS } from "@/lib/mockEvents";
-import { MOCK_LEADS } from "@/lib/mockLeads";
 import type { EventPhase } from "@/types/event";
+import LeadsPanel from "./LeadsPanel";
 
 type AdminTab = "leads" | "closedEvents";
-
-const leadStatusLabels: Record<string, string> = {
-  new: "חדש",
-  contacted: "יצרנו קשר",
-  proposal_sent: "הצעה נשלחה",
-  won: "נסגר בהצלחה",
-  lost: "אבד",
-};
-
-const leadStatusClasses: Record<string, string> = {
-  new: "bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400",
-  contacted:
-    "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400",
-  proposal_sent:
-    "bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400",
-  won: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
-  lost: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
-};
 
 const eventStatusLabels: Record<string, string> = {
   planning: "בתכנון",
@@ -60,8 +41,14 @@ export default function AdminCrmPage() {
   const [checkInQrEventId, setCheckInQrEventId] = useState<string | null>(
     null,
   );
-  const { getPhase, setPhase, getActivityLog, logActivity } =
-    useEventEngine();
+  const {
+    events,
+    eventsStatus,
+    getPhase,
+    setPhase,
+    getActivityLog,
+    logActivity,
+  } = useEventEngine();
 
   return (
     <div className="bg-zinc-100 px-4 py-4 sm:px-6 dark:bg-zinc-950">
@@ -93,39 +80,7 @@ export default function AdminCrmPage() {
         </nav>
 
         {activeTab === "leads" ? (
-          <section>
-            <h2 className="mb-2 text-base font-semibold text-zinc-800 dark:text-zinc-100">
-              לידים פתוחים
-            </h2>
-
-            <div className="overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
-              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {MOCK_LEADS.map((lead) => (
-                  <li
-                    key={lead.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                        {lead.coupleNames}
-                      </p>
-                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        {lead.eventType} · {lead.phone} · תקציב משוער{" "}
-                        {lead.estimatedBudget.toLocaleString("he-IL")} ₪ ·
-                        מעקב עד {lead.followUpDate}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${leadStatusClasses[lead.status]}`}
-                    >
-                      {leadStatusLabels[lead.status]}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
+          <LeadsPanel />
         ) : (
           <section>
             <h2 className="mb-2 text-base font-semibold text-zinc-800 dark:text-zinc-100">
@@ -134,7 +89,14 @@ export default function AdminCrmPage() {
 
             <div className="overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {MOCK_EVENTS.map((event) => {
+                {eventsStatus !== "ready" && (
+                  <li className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    {eventsStatus === "loading"
+                      ? "טוען אירועים..."
+                      : "טעינת האירועים נכשלה."}
+                  </li>
+                )}
+                {events.map((event) => {
                   const phase = getPhase(event.id);
                   const lastLog = getActivityLog(event.id).at(-1);
 

@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import BudgetManagerView from "@/components/BudgetManagerView";
 import CategoryManager from "@/components/CategoryManager";
 import DuplicateGuestsModal from "@/components/DuplicateGuestsModal";
+import EventDataStatus from "@/components/EventDataStatus";
 import GuestForm from "@/components/GuestForm";
 import GuestTable from "@/components/GuestTable";
 import ImportGuestsButton from "@/components/ImportGuestsButton";
@@ -18,7 +19,7 @@ import SearchBar from "@/components/SearchBar";
 import StatsBar from "@/components/StatsBar";
 import { DEFAULT_BUDGET_ITEMS } from "@/lib/budgetCategories";
 import { findDuplicateGuests } from "@/lib/duplicateDetector";
-import { useEventEngine } from "@/lib/eventEngine";
+import { useEventData, useEventEngine } from "@/lib/eventEngine";
 import {
   PHASE_BADGE_CLASSES,
   PHASE_LABELS,
@@ -27,8 +28,6 @@ import {
 } from "@/lib/eventPhaseRules";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { getConfirmedCount } from "@/lib/guestRsvp";
-import { getEventById } from "@/lib/mockEvents";
-import { DEFAULT_TABLES } from "@/lib/seatingTables";
 import type { BudgetItem } from "@/types/budget";
 import type { Guest, RsvpStatus } from "@/types/guest";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
@@ -98,9 +97,20 @@ function tabButtonClasses(active: boolean) {
 
 export default function CouplePortalPage() {
   const { id } = useParams<{ id: string }>();
-  const event = getEventById(id);
-  const { userRole, getPhase, getGuests, setGuests: setEngineGuests } =
-    useEventEngine();
+  const dataStatus = useEventData(id);
+  const {
+    userRole,
+    getEvent,
+    getPhase,
+    getGuests,
+    setGuests: setEngineGuests,
+    getTables,
+    setTables: setEngineTables,
+    getZones,
+    setZones: setEngineZones,
+  } = useEventEngine();
+
+  const event = getEvent(id);
 
   const phase = getPhase(id);
   const isAdmin = userRole === "admin";
@@ -108,14 +118,24 @@ export default function CouplePortalPage() {
   function setGuests(updater: Guest[] | ((prev: Guest[]) => Guest[])) {
     setEngineGuests(id, updater);
   }
+  const tables = getTables(id);
+  function setTables(
+    updater: SeatingTable[] | ((prev: SeatingTable[]) => SeatingTable[]),
+  ) {
+    setEngineTables(id, updater);
+  }
+  const zones = getZones(id);
+  function setZones(
+    updater: SeatingZone[] | ((prev: SeatingZone[]) => SeatingZone[]),
+  ) {
+    setEngineZones(id, updater);
+  }
   function canEdit(section: "guests" | "seating" | "rsvp" | "budget") {
     return isAdmin || isSectionEditableForCouple(phase, section);
   }
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("guests");
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
-  const [tables, setTables] = useState<SeatingTable[]>(DEFAULT_TABLES);
-  const [zones, setZones] = useState<SeatingZone[]>([]);
   const [floorPlanUrl, setFloorPlanUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [budgetItems, setBudgetItems] =
@@ -399,6 +419,8 @@ export default function CouplePortalPage() {
   function handleDeleteBudgetItem(itemId: string) {
     setBudgetItems((prev) => prev.filter((item) => item.id !== itemId));
   }
+
+  if (dataStatus !== "ready") return <EventDataStatus status={dataStatus} />;
 
   return (
     <div className="bg-zinc-100 px-3 py-3 sm:px-4 dark:bg-zinc-950">

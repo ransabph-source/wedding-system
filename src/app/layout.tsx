@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import SyncErrorToast from "@/components/SyncErrorToast";
+import { getCurrentUser } from "@/lib/auth";
 import { EventEngineProvider } from "@/lib/eventEngine";
 import "./globals.css";
 
@@ -18,7 +20,14 @@ export const metadata: Metadata = {
   description: "מערכת לניהול אישורי הגעה וסידורי הושבה לאירועים",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // A database hiccup shouldn't take down public pages like guest check-in;
+  // protected pages and API routes check access again themselves.
+  const user = await getCurrentUser().catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+
   return (
     <html
       lang="he"
@@ -27,7 +36,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-screen" suppressHydrationWarning>
-        <EventEngineProvider>{children}</EventEngineProvider>
+        <EventEngineProvider key={user?.id ?? "signed-out"} userRole={user?.role ?? null}>
+          {children}
+          <SyncErrorToast />
+        </EventEngineProvider>
       </body>
     </html>
   );
