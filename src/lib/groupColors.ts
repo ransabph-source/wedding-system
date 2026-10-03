@@ -9,10 +9,10 @@ const PALETTE = [
   "bg-lime-100 text-lime-700 dark:bg-lime-500/10 dark:text-lime-400",
 ];
 
-export function getCategoryColorClasses(category: string): string {
+export function getGroupColorClasses(group: string): string {
   let hash = 0;
-  for (let i = 0; i < category.length; i++) {
-    hash = (hash * 31 + category.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < group.length; i++) {
+    hash = (hash * 31 + group.charCodeAt(i)) >>> 0;
   }
   return PALETTE[hash % PALETTE.length];
 }

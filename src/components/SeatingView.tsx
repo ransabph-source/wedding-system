@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -73,8 +74,13 @@ export default function SeatingView({
     message: string;
     tableIds: string[];
   } | null>(null);
+  // On touch screens a drag starts after a short press, so a normal swipe
+  // still scrolls the guest list and the page.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   // Only guests who confirmed attendance (digitally or manually) are
@@ -212,8 +218,8 @@ export default function SeatingView({
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveGuest(null)}
       >
-        <div className="grid min-h-[75vh] grid-cols-1 gap-2 lg:grid-cols-[16rem_1fr]">
-          <div className="min-h-0 overflow-y-auto">
+        <div className="grid grid-cols-1 gap-2 lg:min-h-[75vh] lg:grid-cols-[16rem_1fr]">
+          <div className="max-h-[45vh] min-h-0 overflow-y-auto lg:max-h-none">
             <UnseatedGuestsPanel
               guests={unseatedGuests}
               isFiltered={searchQuery.trim().length > 0}
@@ -221,7 +227,7 @@ export default function SeatingView({
           </div>
 
           <div
-            className={`relative min-h-0 overflow-y-auto rounded-xl p-3 transition ${
+            className={`relative min-h-[50vh] overflow-y-auto rounded-xl p-2 transition sm:p-3 lg:min-h-0 ${
               floorPlanUrl
                 ? ""
                 : "border-2 border-dashed border-zinc-300 dark:border-zinc-700"
@@ -272,17 +278,17 @@ export default function SeatingView({
                   </h3>
                 )}
                 {swapSourceTable && (
-                  <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-md">
+                  <div className="sticky top-0 z-10 mb-2 flex items-center justify-between gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-md">
                     <span>
                       בחר שולחן להחלפה עם {formatTableLabel(swapSourceTable)}
-                      <span className="ms-2 text-xs font-normal text-indigo-200">
+                      <span className="ms-2 hidden text-xs font-normal text-indigo-200 md:inline">
                         (Esc לביטול)
                       </span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setTableToSwap(null)}
-                      className="rounded-md bg-white/15 px-2.5 py-1 text-xs font-semibold transition hover:bg-white/25"
+                      className="min-h-9 shrink-0 rounded-md bg-white/15 px-3 py-1 text-xs font-semibold md:min-h-0 md:px-2.5 transition hover:bg-white/25"
                     >
                       ביטול
                     </button>
@@ -338,7 +344,7 @@ export default function SeatingView({
         <div
           key={swapToast.id}
           role="status"
-          className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl ring-1 ring-white/10 transition duration-300 starting:translate-y-3 starting:opacity-0 dark:bg-zinc-800"
+          className="fixed inset-x-3 bottom-[max(1.5rem,env(safe-area-inset-bottom))] z-50 mx-auto flex w-fit max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl ring-1 ring-white/10 transition duration-300 starting:translate-y-3 starting:opacity-0 dark:bg-zinc-800"
         >
           <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-xs">
             ✓

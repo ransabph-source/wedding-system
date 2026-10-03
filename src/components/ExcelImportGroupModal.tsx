@@ -7,31 +7,31 @@ export interface ImportSheetInfo {
   guestCount: number;
 }
 
-interface ExcelImportCategoryModalProps {
+interface ExcelImportGroupModalProps {
   fileName: string;
   sheets: ImportSheetInfo[];
-  categories: string[];
+  groups: string[];
   onCancel: () => void;
-  onConfirm: (categoryBySheetName: Record<string, string>) => void;
+  onConfirm: (groupBySheetName: Record<string, string>) => void;
 }
 
-const CUSTOM_CATEGORY_VALUE = "__custom__";
+const CUSTOM_GROUP_VALUE = "__custom__";
 
 const selectClasses =
   "rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50";
 
-export default function ExcelImportCategoryModal({
+export default function ExcelImportGroupModal({
   fileName,
   sheets,
-  categories,
+  groups,
   onCancel,
   onConfirm,
-}: ExcelImportCategoryModalProps) {
+}: ExcelImportGroupModalProps) {
   const [selections, setSelections] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       sheets.map((sheet) => [
         sheet.name,
-        categories[0] ?? CUSTOM_CATEGORY_VALUE,
+        groups[0] ?? CUSTOM_GROUP_VALUE,
       ]),
     ),
   );
@@ -42,46 +42,46 @@ export default function ExcelImportCategoryModal({
   const isMultiSheet = sheets.length > 1;
   const totalGuests = sheets.reduce((sum, sheet) => sum + sheet.guestCount, 0);
 
-  function resolvedCategory(sheetName: string): string {
+  function resolvedGroup(sheetName: string): string {
     const selection = selections[sheetName];
-    if (selection === CUSTOM_CATEGORY_VALUE) {
+    if (selection === CUSTOM_GROUP_VALUE) {
       return (customValues[sheetName] ?? "").trim();
     }
     return (selection ?? "").trim();
   }
 
   const isValid = sheets.every(
-    (sheet) => resolvedCategory(sheet.name).length > 0,
+    (sheet) => resolvedGroup(sheet.name).length > 0,
   );
 
   function handleConfirm() {
     if (!isValid) return;
-    const categoryBySheetName = Object.fromEntries(
-      sheets.map((sheet) => [sheet.name, resolvedCategory(sheet.name)]),
+    const groupBySheetName = Object.fromEntries(
+      sheets.map((sheet) => [sheet.name, resolvedGroup(sheet.name)]),
     );
-    onConfirm(categoryBySheetName);
+    onConfirm(groupBySheetName);
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="import-category-title"
+      aria-labelledby="import-group-title"
     >
       <div
         className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm"
         onClick={onCancel}
       />
 
-      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-6 dark:border-zinc-800">
+      <div className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:max-h-[85vh] sm:rounded-3xl sm:pb-0 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-4 sm:p-6 dark:border-zinc-800">
           <div className="min-w-0">
             <h2
-              id="import-category-title"
+              id="import-group-title"
               className="text-lg font-bold text-zinc-900 dark:text-zinc-50"
             >
-              שיוך קטגוריה לאורחים מהקובץ
+              שיוך קבוצה לאורחים מהקובץ
             </h2>
             <p className="mt-1 truncate text-sm text-zinc-500 dark:text-zinc-400">
               {fileName} · {totalGuests} אורחים זוהו
@@ -91,17 +91,17 @@ export default function ExcelImportCategoryModal({
             type="button"
             onClick={onCancel}
             aria-label="סגירה"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
           >
             ✕
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 overflow-y-auto p-6">
+        <div className="flex flex-col gap-4 overflow-y-auto p-4 sm:p-6">
           <p className="text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
             {isMultiSheet
-              ? "בקובץ נמצאו מספר גיליונות. בחרו קטגוריה שתשויך לכל האורחים בכל גיליון."
-              : "בחרו קטגוריה שתשויך לכל האורחים בקובץ."}
+              ? "בקובץ נמצאו מספר גיליונות. בחרו קבוצה שתשויך לכל האורחים בכל גיליון."
+              : "בחרו קבוצה שתשויך לכל האורחים בקובץ."}
           </p>
 
           {sheets.map((sheet) => (
@@ -128,17 +128,17 @@ export default function ExcelImportCategoryModal({
                 }
                 className={selectClasses}
               >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {groups.map((groupName) => (
+                  <option key={groupName} value={groupName}>
+                    {groupName}
                   </option>
                 ))}
-                <option value={CUSTOM_CATEGORY_VALUE}>
-                  + קטגוריה חדשה...
+                <option value={CUSTOM_GROUP_VALUE}>
+                  + קבוצה חדשה...
                 </option>
               </select>
 
-              {selections[sheet.name] === CUSTOM_CATEGORY_VALUE && (
+              {selections[sheet.name] === CUSTOM_GROUP_VALUE && (
                 <input
                   type="text"
                   value={customValues[sheet.name] ?? ""}
@@ -148,7 +148,7 @@ export default function ExcelImportCategoryModal({
                       [sheet.name]: e.target.value,
                     }))
                   }
-                  placeholder="שם קטגוריה חדשה"
+                  placeholder="שם קבוצה חדשה"
                   autoFocus
                   className={selectClasses}
                 />
@@ -157,7 +157,7 @@ export default function ExcelImportCategoryModal({
           ))}
         </div>
 
-        <div className="flex gap-2 border-t border-zinc-100 p-6 dark:border-zinc-800">
+        <div className="flex gap-2 border-t border-zinc-100 p-4 sm:p-6 dark:border-zinc-800">
           <button
             type="button"
             onClick={handleConfirm}

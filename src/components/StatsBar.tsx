@@ -54,19 +54,19 @@ export default function StatsBar({
   ];
 
   return (
-    <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <div className="mb-3 grid grid-cols-3 gap-2">
       {tiles.map((tile) => (
         <div
           key={tile.label}
-          className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5 dark:bg-zinc-900"
+          className="flex flex-col items-center gap-1 rounded-xl bg-white p-2 text-center shadow-md sm:flex-row sm:gap-3 sm:p-3 sm:text-start ring-1 ring-black/5 dark:bg-zinc-900"
         >
           <div
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${tile.badgeClasses}`}
+            className={`hidden h-9 w-9 shrink-0 place-items-center rounded-full sm:grid ${tile.badgeClasses}`}
           >
             <div className="h-4.5 w-4.5">{tile.icon}</div>
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <p className="text-[11px] font-medium leading-tight text-zinc-500 sm:text-xs dark:text-zinc-400">
               {tile.label}
             </p>
             <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">

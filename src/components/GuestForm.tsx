@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import type { Guest } from "@/types/guest";
 
 interface GuestFormProps {
-  categories: string[];
+  groups: string[];
   onAddGuest: (guest: Guest) => void;
 }
 
@@ -13,23 +13,23 @@ const inputClasses =
 
 const labelClasses = "text-xs font-medium text-zinc-700 dark:text-zinc-300";
 
-export default function GuestForm({ categories, onAddGuest }: GuestFormProps) {
+export default function GuestForm({ groups, onAddGuest }: GuestFormProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [category, setCategory] = useState(categories[0] ?? "");
+  const [group, setGroup] = useState(groups[0] ?? "");
   const [partySize, setPartySize] = useState("1");
 
-  const hasCategories = categories.length > 0;
-  const selectedCategory = categories.includes(category)
-    ? category
-    : (categories[0] ?? "");
+  const hasGroups = groups.length > 0;
+  const selectedGroup = groups.includes(group)
+    ? group
+    : (groups[0] ?? "");
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const parsedPartySize = Math.floor(Number(partySize));
     if (
       !name.trim() ||
-      !selectedCategory ||
+      !selectedGroup ||
       !Number.isFinite(parsedPartySize) ||
       parsedPartySize <= 0
     )
@@ -39,7 +39,7 @@ export default function GuestForm({ categories, onAddGuest }: GuestFormProps) {
       id: crypto.randomUUID(),
       name: name.trim(),
       phone: phone.trim(),
-      category: selectedCategory,
+      group: selectedGroup,
       partySize: parsedPartySize,
       seatingAssignment: null,
       arrived: false,
@@ -49,7 +49,7 @@ export default function GuestForm({ categories, onAddGuest }: GuestFormProps) {
 
     setName("");
     setPhone("");
-    setCategory(categories[0] ?? "");
+    setGroup(groups[0] ?? "");
     setPartySize("1");
   }
 
@@ -104,39 +104,39 @@ export default function GuestForm({ categories, onAddGuest }: GuestFormProps) {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="category" className={labelClasses}>
-          קטגוריה
+        <label htmlFor="group" className={labelClasses}>
+          קבוצה
         </label>
         <select
-          id="category"
-          value={selectedCategory}
-          onChange={(e) => setCategory(e.target.value)}
-          disabled={!hasCategories}
+          id="group"
+          value={selectedGroup}
+          onChange={(e) => setGroup(e.target.value)}
+          disabled={!hasGroups}
           className={inputClasses}
         >
-          {hasCategories ? (
-            categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+          {hasGroups ? (
+            groups.map((groupName) => (
+              <option key={groupName} value={groupName}>
+                {groupName}
               </option>
             ))
           ) : (
-            <option value="">אין קטגוריות זמינות</option>
+            <option value="">אין קבוצות זמינות</option>
           )}
         </select>
       </div>
 
       <button
         type="submit"
-        disabled={!hasCategories}
-        className="h-fit rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={!hasGroups}
+        className="h-fit min-h-11 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm lg:min-h-0 font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         הוסף אורח
       </button>
 
-      {!hasCategories && (
+      {!hasGroups && (
         <p className="text-sm text-amber-600 dark:text-amber-400 sm:col-span-2 lg:col-span-5">
-          יש להוסיף קטגוריה בניהול הקטגוריות לפני הוספת אורח
+          יש להוסיף קבוצה בניהול הקבוצות לפני הוספת אורח
         </p>
       )}
     </form>

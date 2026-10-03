@@ -21,7 +21,7 @@ export interface GuestRow {
   id: string;
   name: string;
   phone: string;
-  category: string;
+  group_name: string;
   party_size: number;
   confirmed_count: number | null;
   rsvp_status: Guest["rsvpStatus"];
@@ -80,7 +80,7 @@ export function guestFromRow(row: GuestRow): Guest {
     id: row.id,
     name: row.name,
     phone: row.phone,
-    category: row.category,
+    group: row.group_name,
     partySize: row.party_size,
     confirmedCount: row.confirmed_count ?? undefined,
     seatingAssignment: row.table_id
@@ -102,7 +102,7 @@ export function guestToRow(eventId: string, guest: Guest): GuestRow {
     id: guest.id,
     name: guest.name,
     phone: guest.phone,
-    category: guest.category,
+    group_name: guest.group,
     party_size: guest.partySize,
     confirmed_count: guest.confirmedCount ?? null,
     rsvp_status: guest.rsvpStatus,

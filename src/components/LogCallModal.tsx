@@ -54,7 +54,7 @@ export default function LogCallModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="log-call-title"
@@ -64,8 +64,8 @@ export default function LogCallModal({
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-6 dark:border-zinc-800">
+      <div className="relative max-h-[92dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:max-h-[90vh] sm:rounded-3xl sm:pb-0 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-4 sm:p-6 dark:border-zinc-800">
           <div className="min-w-0">
             <h2
               id="log-call-title"
@@ -81,7 +81,7 @@ export default function LogCallModal({
             type="button"
             onClick={onClose}
             aria-label="סגירה"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
           >
             ✕
           </button>

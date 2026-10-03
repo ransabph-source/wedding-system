@@ -21,8 +21,8 @@ where e.id in ('mock-1', '2', '3')
 order by e.id, t.id
 on conflict (event_id, id) do nothing;
 
-insert into public.guests (event_id, id, name, phone, category, party_size, table_id, arrived, rsvp_status, contact_count)
-select e.id, g.id, g.name, g.phone, g.category, g.party_size, g.table_id, g.arrived, 'confirmed', g.contact_count
+insert into public.guests (event_id, id, name, phone, group_name, party_size, table_id, arrived, rsvp_status, contact_count)
+select e.id, g.id, g.name, g.phone, g.group_name, g.party_size, g.table_id, g.arrived, 'confirmed', g.contact_count
 from public.events e
 cross join (values
   ('demo-guest-1', 'משפחת אברהמי', '050-1234567', 'משפחה', 4, 'table-1', false, 1),
@@ -30,7 +30,7 @@ cross join (values
   ('demo-guest-3', 'אלון פרץ', '054-3456789', 'עבודה', 1, 'table-3', false, 1),
   ('demo-guest-4', 'משפחת גולדברג', '053-4567890', 'משפחה', 5, 'table-1', true, 1),
   ('demo-guest-5', 'מאיה כספי', '058-5678901', 'חברים', 1, 'table-4', false, 3)
-) as g (id, name, phone, category, party_size, table_id, arrived, contact_count)
+) as g (id, name, phone, group_name, party_size, table_id, arrived, contact_count)
 where e.id in ('mock-1', '2', '3')
 order by e.id, g.id
 on conflict (event_id, id) do nothing;

@@ -275,7 +275,7 @@ export default function SeatingTableCard({
                     : `הגדרת ${tableLabel} כרזרבה`
                 }
                 title={table.isReserved ? "ביטול רזרבה" : "הגדר כרזרבה"}
-                className={`grid h-7 w-7 place-items-center rounded-full transition ${
+                className={`grid h-9 w-9 place-items-center rounded-full transition md:h-7 md:w-7 ${
                   table.isReserved
                     ? "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:hover:bg-amber-500/25"
                     : "text-zinc-400 hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-400"
@@ -294,7 +294,7 @@ export default function SeatingTableCard({
                 type="button"
                 onClick={startEdit}
                 aria-label={`עריכת ${tableLabel}`}
-                className="grid h-7 w-7 place-items-center rounded-full text-zinc-400 transition hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-400"
+                className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-400"
               >
                 <svg
                   className="h-4 w-4"
@@ -310,7 +310,7 @@ export default function SeatingTableCard({
                 type="button"
                 onClick={() => setIsConfirmingDelete(true)}
                 aria-label={`מחיקת ${tableLabel}`}
-                className="grid h-7 w-7 place-items-center rounded-full text-zinc-400 transition hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
               >
                 <svg
                   className="h-4 w-4"

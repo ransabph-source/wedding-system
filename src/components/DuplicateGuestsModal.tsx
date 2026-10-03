@@ -20,7 +20,7 @@ export default function DuplicateGuestsModal({
 }: DuplicateGuestsModalProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="duplicate-guests-title"
@@ -30,8 +30,8 @@ export default function DuplicateGuestsModal({
         onClick={onClose}
       />
 
-      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-6 dark:border-zinc-800">
+      <div className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:max-h-[85vh] sm:rounded-3xl sm:pb-0 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-4 sm:p-6 dark:border-zinc-800">
           <div className="min-w-0">
             <h2
               id="duplicate-guests-title"
@@ -48,13 +48,13 @@ export default function DuplicateGuestsModal({
             type="button"
             onClick={onClose}
             aria-label="סגירה"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
           >
             ✕
           </button>
         </div>
 
-        <ul className="flex flex-col gap-3 overflow-y-auto p-6">
+        <ul className="flex flex-col gap-3 overflow-y-auto p-4 sm:p-6">
           {groups.map((group) => (
             <li
               key={group.map((guest) => guest.id).join(",")}
@@ -73,7 +73,7 @@ export default function DuplicateGuestsModal({
                     key={guest.id}
                     className="rounded-lg bg-zinc-100 px-2.5 py-1.5 dark:bg-zinc-800"
                   >
-                    עותק {index + 1}: {guest.category} · {guest.partySize} אורחים
+                    עותק {index + 1}: {guest.group} · {guest.partySize} אורחים
                   </li>
                 ))}
               </ul>

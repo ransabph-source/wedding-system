@@ -12,7 +12,7 @@ export interface Guest {
   id: string;
   name: string;
   phone: string;
-  category: string;
+  group: string;
   partySize: number;
   // How many of the party confirmed attendance. Only meaningful when
   // rsvpStatus is "confirmed"; when unset, the whole party is assumed.

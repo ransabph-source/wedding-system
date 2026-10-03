@@ -3,11 +3,11 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import Papa from "papaparse";
 import readXlsxFile from "read-excel-file/browser";
-import ExcelImportCategoryModal from "@/components/ExcelImportCategoryModal";
+import ExcelImportGroupModal from "@/components/ExcelImportGroupModal";
 import type { Guest } from "@/types/guest";
 
 interface ImportGuestsButtonProps {
-  categories: string[];
+  groups: string[];
   onImportGuests: (guests: Guest[]) => void;
 }
 
@@ -209,7 +209,7 @@ async function parseFileIntoSheets(file: File): Promise<ParsedSheet[]> {
 }
 
 export default function ImportGuestsButton({
-  categories,
+  groups,
   onImportGuests,
 }: ImportGuestsButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -258,7 +258,7 @@ export default function ImportGuestsButton({
     }
   }
 
-  function handleConfirmImport(categoryBySheetName: Record<string, string>) {
+  function handleConfirmImport(groupBySheetName: Record<string, string>) {
     if (!pendingSheets) return;
 
     const guests: Guest[] = pendingSheets.flatMap((sheet) =>
@@ -267,7 +267,7 @@ export default function ImportGuestsButton({
         name: draft.name,
         phone: draft.phone,
         partySize: draft.partySize,
-        category: categoryBySheetName[sheet.sheetName] ?? "כללי",
+        group: groupBySheetName[sheet.sheetName] ?? "כללי",
         seatingAssignment: null,
         arrived: false,
         rsvpStatus: "pending_whatsapp",
@@ -303,7 +303,7 @@ export default function ImportGuestsButton({
 
         <label
           htmlFor="guest-import"
-          className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-indigo-600 px-3 py-1.5 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 active:bg-indigo-100 dark:hover:bg-indigo-500/10 ${
+          className={`inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-indigo-600 px-3 py-1.5 sm:min-h-0 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 active:bg-indigo-100 dark:hover:bg-indigo-500/10 ${
             isLoading ? "pointer-events-none opacity-60" : ""
           }`}
         >
@@ -346,13 +346,13 @@ export default function ImportGuestsButton({
       )}
 
       {pendingSheets && (
-        <ExcelImportCategoryModal
+        <ExcelImportGroupModal
           fileName={pendingFileName}
           sheets={pendingSheets.map((sheet) => ({
             name: sheet.sheetName,
             guestCount: sheet.drafts.length,
           }))}
-          categories={categories}
+          groups={groups}
           onCancel={handleCancelImport}
           onConfirm={handleConfirmImport}
         />

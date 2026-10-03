@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { signIn } from "./actions";
 
 const inputClasses =
-  "w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-inset ring-zinc-200 transition focus:ring-2 focus:ring-indigo-500/50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700";
+  "w-full rounded-lg border-0 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-inset ring-zinc-200 transition focus:ring-2 focus:ring-indigo-500/50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700";
 
 const labelClasses =
   "mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300";
@@ -21,7 +21,7 @@ export default function LoginForm({
   return (
     <form
       action={formAction}
-      className="flex flex-col gap-4 rounded-xl bg-white p-5 shadow-md ring-1 ring-black/5 dark:bg-zinc-900"
+      className="flex flex-col gap-4 rounded-xl bg-white p-4 sm:p-5 shadow-md ring-1 ring-black/5 dark:bg-zinc-900"
     >
       <input type="hidden" name="next" value={next} />
 
@@ -64,7 +64,7 @@ export default function LoginForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-base sm:text-sm font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "מתחבר..." : "התחברות"}
       </button>

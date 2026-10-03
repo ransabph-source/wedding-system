@@ -59,7 +59,7 @@ export default function AiSmartSeatingModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-seating-title"
@@ -69,10 +69,10 @@ export default function AiSmartSeatingModal({
         onClick={handleClose}
       />
 
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
+      <div className="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl pb-[env(safe-area-inset-bottom)] sm:max-h-[90vh] sm:rounded-3xl sm:pb-0 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
         <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-l from-fuchsia-500 via-violet-500 to-indigo-500" />
 
-        <div className="flex flex-col gap-5 p-6 sm:p-8">
+        <div className="flex flex-col gap-5 p-5 sm:p-8">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-xl shadow-lg shadow-violet-500/30">
@@ -89,7 +89,7 @@ export default function AiSmartSeatingModal({
               type="button"
               onClick={handleClose}
               aria-label="סגירה"
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
             >
               ✕
             </button>
@@ -121,7 +121,7 @@ export default function AiSmartSeatingModal({
                 {result.mixedTableGuestCount > 0 && (
                   <p className="text-sm text-amber-700 dark:text-amber-400">
                     {result.mixedTableGuestCount} אורחים שובצו לשולחן משותף
-                    עם קטגוריה אחרת, בשל חוסר מקום בשולחנות של הקטגוריה שלהם.
+                    עם קבוצה אחרת, בשל חוסר מקום בשולחנות של הקבוצה שלהם.
                   </p>
                 )}
               </div>
@@ -170,7 +170,7 @@ export default function AiSmartSeatingModal({
 
               <p className="text-xs text-zinc-400 dark:text-zinc-500">
                 {unseatedGuests.length > 0
-                  ? `${unseatedGuests.length} אורחים ללא שולחן ימוינו לפי קטגוריה ויושבו אוטומטית.`
+                  ? `${unseatedGuests.length} אורחים ללא שולחן ימוינו לפי קבוצה ויושבו אוטומטית.`
                   : "אין כרגע אורחים ללא שולחן."}
               </p>
 

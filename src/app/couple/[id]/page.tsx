@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import BudgetManagerView from "@/components/BudgetManagerView";
-import CategoryManager from "@/components/CategoryManager";
+import GroupManager from "@/components/GroupManager";
+import DigitalInvitationView from "@/components/DigitalInvitationView";
 import DuplicateGuestsModal from "@/components/DuplicateGuestsModal";
 import EventDataStatus from "@/components/EventDataStatus";
 import GuestForm from "@/components/GuestForm";
@@ -46,9 +47,9 @@ const SeatingView = dynamic(() => import("@/components/SeatingView"), {
   ),
 });
 
-const DEFAULT_CATEGORIES = ["משפחה", "חברים", "עבודה"];
+const DEFAULT_GUEST_GROUPS = ["משפחה", "חברים", "עבודה"];
 
-type DashboardTab = "guests" | "seating" | "rsvp" | "budget";
+type DashboardTab = "guests" | "seating" | "rsvp" | "budget" | "invitation";
 
 // When merging duplicates, the copy furthest along in the RSVP flow wins.
 const RSVP_MERGE_PRIORITY: Record<RsvpStatus, number> = {
@@ -88,7 +89,7 @@ function mergeGuests(group: Guest[]): Guest {
 }
 
 function tabButtonClasses(active: boolean) {
-  return `rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+  return `min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition sm:min-h-0 ${
     active
       ? "bg-indigo-600 text-white shadow"
       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -135,7 +136,7 @@ export default function CouplePortalPage() {
   }
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("guests");
-  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [guestGroups, setGuestGroups] = useState<string[]>(DEFAULT_GUEST_GROUPS);
   const [floorPlanUrl, setFloorPlanUrl] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [budgetItems, setBudgetItems] =
@@ -168,22 +169,22 @@ export default function CouplePortalPage() {
     0,
   );
 
-  function handleAddCategory(name: string) {
-    setCategories((prev) => (prev.includes(name) ? prev : [...prev, name]));
+  function handleAddGroup(name: string) {
+    setGuestGroups((prev) => (prev.includes(name) ? prev : [...prev, name]));
   }
 
-  function handleDeleteCategory(name: string) {
-    setCategories((prev) => prev.filter((category) => category !== name));
+  function handleDeleteGroup(name: string) {
+    setGuestGroups((prev) => prev.filter((group) => group !== name));
   }
 
   function handleImportGuests(imported: Guest[]) {
-    setCategories((prev) => {
-      const newCategories = imported
-        .map((guest) => guest.category)
-        .filter((category) => !prev.includes(category));
-      const uniqueNewCategories = Array.from(new Set(newCategories));
-      return uniqueNewCategories.length > 0
-        ? [...prev, ...uniqueNewCategories]
+    setGuestGroups((prev) => {
+      const newGroups = imported
+        .map((guest) => guest.group)
+        .filter((group) => !prev.includes(group));
+      const uniqueNewGroups = Array.from(new Set(newGroups));
+      return uniqueNewGroups.length > 0
+        ? [...prev, ...uniqueNewGroups]
         : prev;
     });
     setGuests((prev) => [...prev, ...imported]);
@@ -191,7 +192,7 @@ export default function CouplePortalPage() {
 
   function handleUpdateGuest(
     guestId: string,
-    updates: Partial<Pick<Guest, "name" | "phone" | "partySize" | "category">>,
+    updates: Partial<Pick<Guest, "name" | "phone" | "partySize" | "group">>,
   ) {
     setGuests((prev) =>
       prev.map((guest) =>
@@ -423,7 +424,7 @@ export default function CouplePortalPage() {
   if (dataStatus !== "ready") return <EventDataStatus status={dataStatus} />;
 
   return (
-    <div className="bg-zinc-100 px-3 py-3 sm:px-4 dark:bg-zinc-950">
+    <div className="flex-1 bg-zinc-100 px-3 py-3 sm:px-4 dark:bg-zinc-950">
       <div className="mx-auto w-full max-w-[100rem]">
         <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -436,11 +437,11 @@ export default function CouplePortalPage() {
                 : "ניהול האירוע שלכם במקום אחד"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setIsCheckInQrOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm ring-1 ring-black/5 transition hover:bg-zinc-50 active:scale-[0.98] dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs sm:min-h-0 font-semibold text-zinc-700 shadow-sm ring-1 ring-black/5 transition hover:bg-zinc-50 active:scale-[0.98] dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               <svg
                 className="h-4 w-4"
@@ -482,15 +483,15 @@ export default function CouplePortalPage() {
           unseatedGuests={unseatedGuestsCount}
         />
 
-        <div className="mb-3 flex w-full flex-row flex-nowrap items-end justify-between gap-4">
-          <div className="flex shrink-0 flex-col items-start gap-3">
-            {activeTab !== "rsvp" && activeTab !== "budget" && (
-              <div className="max-w-md">
+        <div className="mb-3 flex w-full flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-4">
+          <div className="flex min-w-0 flex-col gap-3 lg:shrink-0 lg:items-start">
+            {(activeTab === "guests" || activeTab === "seating") && (
+              <div className="w-full lg:max-w-md">
                 <SearchBar value={searchQuery} onChange={setSearchQuery} />
               </div>
             )}
 
-            <nav className="inline-flex w-fit gap-1 rounded-xl bg-white p-1 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900">
+            <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-black/5 [scrollbar-width:none] sm:w-fit dark:bg-zinc-900">
               <button
                 type="button"
                 onClick={() => setActiveTab("guests")}
@@ -519,13 +520,20 @@ export default function CouplePortalPage() {
               >
                 ניהול תקציב
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("invitation")}
+                className={tabButtonClasses(activeTab === "invitation")}
+              >
+                הזמנה דיגיטלית
+              </button>
             </nav>
           </div>
 
           {activeTab === "guests" && (
             <RsvpSummaryWidget
               guests={guests}
-              className="min-w-0 max-w-3xl flex-1"
+              className="min-w-0 lg:max-w-3xl lg:flex-1"
             />
           )}
         </div>
@@ -540,27 +548,27 @@ export default function CouplePortalPage() {
               {canEdit("guests") && (
                 <div className="grid grid-cols-1 gap-2 lg:grid-cols-[2fr_1fr]">
                   <GuestForm
-                    categories={categories}
+                    groups={guestGroups}
                     onAddGuest={(guest) =>
                       setGuests((prev) => [...prev, guest])
                     }
                   />
                   <ImportGuestsButton
-                    categories={categories}
+                    groups={guestGroups}
                     onImportGuests={handleImportGuests}
                   />
                 </div>
               )}
 
               {canEdit("guests") && duplicateGroups.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                <div className="flex flex-col gap-2 rounded-xl border border-amber-300 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
                   <span>
                     ⚠️ נמצאו {duplicateGroups.length} חשדות לכפילויות ברשימה
                   </span>
                   <button
                     type="button"
                     onClick={() => setIsDuplicatesModalOpen(true)}
-                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-white transition hover:bg-amber-700 active:bg-amber-800"
+                    className="min-h-10 rounded-lg bg-amber-600 px-3 py-1.5 text-white sm:min-h-0 transition hover:bg-amber-700 active:bg-amber-800"
                   >
                     טיפול בכפילויות
                   </button>
@@ -576,10 +584,10 @@ export default function CouplePortalPage() {
                 />
               )}
 
-              <div className="min-h-[60vh] overflow-hidden rounded-xl">
+              <div className="overflow-hidden rounded-xl md:min-h-[60vh]">
                 <GuestTable
                   guests={visibleGuests}
-                  categories={categories}
+                  groups={guestGroups}
                   isFiltered={searchQuery.trim().length > 0}
                   readOnly={!canEdit("guests")}
                   onUpdateGuest={handleUpdateGuest}
@@ -597,10 +605,10 @@ export default function CouplePortalPage() {
               </div>
 
               {canEdit("guests") && (
-                <CategoryManager
-                  categories={categories}
-                  onAddCategory={handleAddCategory}
-                  onDeleteCategory={handleDeleteCategory}
+                <GroupManager
+                  groups={guestGroups}
+                  onAddGroup={handleAddGroup}
+                  onDeleteGroup={handleDeleteGroup}
                 />
               )}
             </div>
@@ -644,6 +652,8 @@ export default function CouplePortalPage() {
                 onLogCall={handleLogCall}
               />
             </div>
+          ) : activeTab === "invitation" ? (
+            <DigitalInvitationView eventId={id} event={event} />
           ) : (
             <div>
               {!canEdit("budget") && (

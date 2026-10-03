@@ -117,15 +117,15 @@ export default function SeatingCopilotChat({
       );
 
     const originalOccupancy = new Map<string, number>();
-    const originalCategories = new Map<string, Set<string>>();
+    const originalGroups = new Map<string, Set<string>>();
     const remainingCapacity = new Map<string, number>();
     for (const table of consolidatableTables) {
       const occupants = seatedAtTable(table.id);
       const occupied = occupants.reduce((sum, g) => sum + g.partySize, 0);
       originalOccupancy.set(table.id, occupied);
-      originalCategories.set(
+      originalGroups.set(
         table.id,
-        new Set(occupants.map((g) => g.category)),
+        new Set(occupants.map((g) => g.group)),
       );
       remainingCapacity.set(table.id, table.capacity - occupied);
     }
@@ -164,12 +164,12 @@ export default function SeatingCopilotChat({
             table.id !== sourceTable.id &&
             (originalOccupancy.get(table.id) ?? 0) > 0,
         );
-        const sameCategoryTables = fullerTables.filter((table) =>
-          originalCategories.get(table.id)?.has(guest.category),
+        const sameGroupTables = fullerTables.filter((table) =>
+          originalGroups.get(table.id)?.has(guest.group),
         );
 
         const destinationId =
-          findBestTable(sameCategoryTables, remainingCapacity, guest.partySize) ??
+          findBestTable(sameGroupTables, remainingCapacity, guest.partySize) ??
           findBestTable(fullerTables, remainingCapacity, guest.partySize);
 
         if (!destinationId) continue;
@@ -238,7 +238,7 @@ export default function SeatingCopilotChat({
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-24 start-6 z-40 flex h-[32rem] w-[22rem] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
+        <div className="fixed inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 flex h-[min(32rem,calc(100dvh-7rem))] flex-col overflow-hidden rounded-3xl sm:inset-x-auto sm:bottom-24 sm:start-6 sm:w-[22rem] bg-white shadow-2xl ring-1 ring-black/5 dark:bg-zinc-900">
           <div className="flex items-center justify-between gap-2 bg-gradient-to-l from-fuchsia-600 via-violet-600 to-indigo-600 px-4 py-3.5 text-white">
             <div className="flex items-center gap-2">
               <span className="text-lg">✨</span>
@@ -248,7 +248,7 @@ export default function SeatingCopilotChat({
               type="button"
               onClick={() => setIsOpen(false)}
               aria-label="סגירת הצ׳אט"
-              className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/20"
+              className="grid h-10 w-10 place-items-center rounded-full transition hover:bg-white/20"
             >
               ✕
             </button>
@@ -310,7 +310,7 @@ export default function SeatingCopilotChat({
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={isOpen ? "סגירת סייען ההושבה" : "פתיחת סייען ההושבה"}
-        className="fixed bottom-6 start-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-l from-fuchsia-600 via-violet-600 to-indigo-600 text-2xl text-white shadow-lg shadow-violet-500/40 transition hover:shadow-xl hover:shadow-violet-500/50 active:scale-95"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] start-4 z-40 grid h-14 w-14 sm:bottom-6 sm:start-6 place-items-center rounded-full bg-gradient-to-l from-fuchsia-600 via-violet-600 to-indigo-600 text-2xl text-white shadow-lg shadow-violet-500/40 transition hover:shadow-xl hover:shadow-violet-500/50 active:scale-95"
       >
         {isOpen ? "✕" : "✨"}
       </button>

@@ -20,8 +20,9 @@ const inputClasses =
 const labelClasses =
   "mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300";
 
+// Taller on phones so they're comfortable touch targets.
 const actionButtonClasses =
-  "rounded-lg px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-1 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:px-2.5 sm:text-xs";
 
 // request() prefixes the server's message with the method and URL.
 function errorMessage(err: unknown) {
@@ -59,10 +60,10 @@ export default function AdminStaffPage() {
   }, []);
 
   return (
-    <div className="bg-zinc-100 px-4 py-4 sm:px-6 dark:bg-zinc-950">
+    <div className="px-3 py-4 sm:px-6 sm:py-6">
       <div className="mx-auto max-w-4xl">
         <header className="mb-3">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-lg font-bold sm:text-xl text-zinc-900 dark:text-zinc-50">
             ניהול צוות
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
@@ -151,7 +152,7 @@ function NewStaffForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="grid gap-4 rounded-xl bg-white p-4 shadow-md ring-1 ring-black/5 sm:grid-cols-3 dark:bg-zinc-900"
+      className="grid gap-3 rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5 sm:grid-cols-3 sm:gap-4 sm:p-4 dark:bg-zinc-900"
     >
       <div>
         <label htmlFor="staff-name" className={labelClasses}>
@@ -217,7 +218,7 @@ function NewStaffForm({
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm sm:min-h-0 sm:w-auto font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? "יוצר..." : "הוספת איש צוות"}
         </button>
@@ -285,14 +286,14 @@ function StaffRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <li className="flex flex-col gap-3 px-3 py-3 sm:gap-2 sm:px-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {account.name || "—"}
           </p>
-          <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-            <span dir="ltr">{account.email ?? "—"}</span> · נוצר{" "}
+          <p className="mt-0.5 text-xs text-zinc-500 sm:truncate dark:text-zinc-400">
+            <span dir="ltr" className="break-all">{account.email ?? "—"}</span> · נוצר{" "}
             {formatDate(account.createdAt)} ·{" "}
             {account.lastSignInAt
               ? `כניסה אחרונה ${formatDate(account.lastSignInAt)}`
@@ -300,7 +301,7 @@ function StaffRow({
           </p>
         </div>
 
-        <div className="flex shrink-0 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           <button
             type="button"
             onClick={() =>
@@ -325,11 +326,11 @@ function StaffRow({
       {editingPassword && (
         <form
           onSubmit={handlePasswordSubmit}
-          className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50"
+          className="grid grid-cols-2 items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 sm:flex sm:flex-wrap dark:bg-zinc-800/50"
         >
           <label
             htmlFor={`password-${account.userId}`}
-            className="text-xs font-semibold text-zinc-500 dark:text-zinc-400"
+            className="col-span-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400"
           >
             סיסמה חדשה
           </label>
@@ -343,7 +344,7 @@ function StaffRow({
             autoFocus
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-48 min-w-0 flex-1 rounded-lg border-0 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none ring-1 ring-inset ring-zinc-200 transition focus:ring-2 focus:ring-indigo-500/50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700"
+            className="col-span-2 min-w-0 rounded-lg border-0 bg-white px-3 py-2 text-sm sm:w-48 sm:flex-1 sm:py-1.5 text-zinc-900 outline-none ring-1 ring-inset ring-zinc-200 transition focus:ring-2 focus:ring-indigo-500/50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700"
           />
           <button
             type="submit"

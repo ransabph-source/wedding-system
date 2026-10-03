@@ -49,8 +49,9 @@ const inputClasses =
 const labelClasses =
   "mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300";
 
+// Taller on phones so they're comfortable touch targets.
 const buttonClasses =
-  "rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0";
 
 const errorClasses =
   "rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-400";
@@ -95,7 +96,7 @@ function isOpen(lead: Lead) {
 }
 
 function viewTabClasses(active: boolean) {
-  return `rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+  return `min-h-9 flex-1 rounded-md px-2.5 py-1 text-xs font-semibold transition sm:min-h-0 sm:flex-none ${
     active
       ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900"
       : "text-zinc-500 hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
@@ -191,13 +192,13 @@ export default function LeadsPanel() {
 
   return (
     <section>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="mb-3 flex flex-col gap-2 sm:mb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
           <h2 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
             לידים
           </h2>
           {status === "ready" && (
-            <div className="inline-flex gap-0.5 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-900">
+            <div className="flex gap-0.5 rounded-lg bg-zinc-200/60 p-0.5 sm:inline-flex dark:bg-zinc-900">
               <button
                 type="button"
                 onClick={() => setView("open")}
@@ -222,7 +223,7 @@ export default function LeadsPanel() {
               setCreating(true);
               setEditingId(null);
             }}
-            className={`${buttonClasses} bg-indigo-600 text-white shadow hover:bg-indigo-700`}
+            className={`${buttonClasses} w-full bg-indigo-600 text-white shadow hover:bg-indigo-700 sm:w-auto`}
           >
             + ליד חדש
           </button>
@@ -243,7 +244,7 @@ export default function LeadsPanel() {
             type="button"
             onClick={() => setNotice(null)}
             aria-label="סגירת ההודעה"
-            className="shrink-0 opacity-60 transition hover:opacity-100"
+            className="-m-2 grid h-9 w-9 shrink-0 place-items-center opacity-60 transition hover:opacity-100"
           >
             ✕
           </button>
@@ -251,7 +252,7 @@ export default function LeadsPanel() {
       )}
 
       {creating && (
-        <div className="mb-3 rounded-xl bg-white p-4 shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
+        <div className="mb-3 rounded-xl bg-white p-3 shadow-md sm:p-4 ring-1 ring-black/5 dark:bg-zinc-900">
           <h3 className="mb-3 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             ליד חדש
           </h3>
@@ -280,7 +281,7 @@ export default function LeadsPanel() {
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {visibleLeads.map((lead) =>
               editingId === lead.id ? (
-                <li key={lead.id} className="bg-zinc-50/60 px-4 py-4 dark:bg-zinc-800/30">
+                <li key={lead.id} className="bg-zinc-50/60 px-3 py-4 sm:px-4 dark:bg-zinc-800/30">
                   <LeadForm
                     initial={lead}
                     submitLabel="שמירה"
@@ -399,13 +400,13 @@ function LeadCard({
   ].filter(Boolean);
 
   return (
-    <div className="flex flex-col gap-3 px-4 py-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex flex-col gap-3 px-3 py-3 sm:px-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          <p className="truncate text-base font-semibold text-zinc-800 sm:text-sm dark:text-zinc-100">
             {lead.names}
           </p>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-sm text-zinc-500 sm:text-xs dark:text-zinc-400">
             {details.map((detail, i) => (
               <span key={i}>
                 {i > 0 && " · "}
@@ -426,7 +427,7 @@ function LeadCard({
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           <label htmlFor={`${idPrefix}-status`} className="sr-only">
             סטטוס הליד
           </label>
@@ -435,7 +436,7 @@ function LeadCard({
             value={lead.status}
             disabled={pending !== null}
             onChange={(e) => handleStatusChange(e.target.value as LeadStatus)}
-            className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold outline-none ring-1 ring-inset ring-black/5 transition focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60 ${STATUS_CLASSES[lead.status]}`}
+            className={`min-h-10 rounded-full border-0 px-3 py-1 text-xs font-semibold outline-none ring-1 ring-inset ring-black/5 transition focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60 sm:min-h-0 sm:px-2.5 ${STATUS_CLASSES[lead.status]}`}
           >
             {LEAD_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -468,7 +469,7 @@ function LeadCard({
       {lead.notes && (
         <div
           ref={notesRef}
-          className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-lg bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-300"
+          className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-zinc-50 px-3 py-2 text-sm leading-relaxed sm:max-h-32 sm:text-xs text-zinc-600 dark:bg-zinc-800/50 dark:text-zinc-300"
         >
           {lead.notes}
         </div>
@@ -476,9 +477,9 @@ function LeadCard({
 
       <form
         onSubmit={handleAddNote}
-        className="flex flex-wrap items-end gap-2"
+        className="grid grid-cols-[1fr_auto] items-end gap-2 sm:flex sm:flex-wrap"
       >
-        <div className="min-w-48 flex-1">
+        <div className="col-span-2 sm:min-w-48 sm:flex-1">
           <label htmlFor={`${idPrefix}-note`} className="sr-only">
             הערה על השיחה
           </label>
@@ -539,7 +540,7 @@ function ConvertLeadModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="convert-lead-title"
@@ -549,8 +550,8 @@ function ConvertLeadModal({
         onClick={onClose}
       />
 
-      <div className="relative max-h-full w-full max-w-xl overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 transition duration-200 starting:scale-95 starting:opacity-0 dark:bg-zinc-900">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-5 dark:border-zinc-800">
+      <div className="relative max-h-[92dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] sm:max-h-full sm:rounded-3xl sm:pb-0 shadow-2xl ring-1 ring-black/5 transition duration-200 starting:scale-95 starting:opacity-0 dark:bg-zinc-900">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-100 bg-white p-4 sm:p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="min-w-0">
             <h2
               id="convert-lead-title"
@@ -566,7 +567,7 @@ function ConvertLeadModal({
             type="button"
             onClick={onClose}
             aria-label="סגירה"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
           >
             ✕
           </button>
@@ -574,7 +575,7 @@ function ConvertLeadModal({
 
         <NewClientForm
           idPrefix={`convert-${lead.id}`}
-          className="p-5"
+          className="p-4 sm:p-5"
           initial={{ coupleNames: lead.names, phone: lead.phone }}
           onCreated={onCreated}
           onCancel={onClose}

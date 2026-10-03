@@ -3,7 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Guest } from "@/types/guest";
-import { getCategoryColorClasses } from "@/lib/categoryColors";
+import { getGroupColorClasses } from "@/lib/groupColors";
 
 interface GuestChipProps {
   guest: Guest;
@@ -29,14 +29,14 @@ export default function GuestChip({
       style={style}
       {...listeners}
       {...attributes}
-      className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-sm shadow-sm select-none ${
+      className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-sm shadow-sm select-none [-webkit-touch-callout:none] ${
         highlighted
           ? "border-yellow-400 bg-yellow-100 dark:border-yellow-400/60 dark:bg-yellow-500/10"
           : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
       } ${
         isDragging
           ? "opacity-40"
-          : "cursor-grab touch-none active:cursor-grabbing"
+          : "cursor-grab touch-manipulation active:cursor-grabbing"
       }`}
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -49,9 +49,9 @@ export default function GuestChip({
           )}
         </span>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${getCategoryColorClasses(guest.category)}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${getGroupColorClasses(guest.group)}`}
         >
-          {guest.category}
+          {guest.group}
         </span>
       </div>
 

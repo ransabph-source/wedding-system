@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
-import { getCategoryColorClasses } from "@/lib/categoryColors";
+import { getGroupColorClasses } from "@/lib/groupColors";
 import { getArrivedCount } from "@/lib/guestRsvp";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { formatTableLabel } from "@/lib/tableDisplay";
@@ -199,9 +199,9 @@ export function LiveGuestCards({
                   </p>
                 )}
                 <span
-                  className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getCategoryColorClasses(guest.category)}`}
+                  className={`mt-1.5 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getGroupColorClasses(guest.group)}`}
                 >
-                  {guest.category}
+                  {guest.group}
                 </span>
               </div>
 

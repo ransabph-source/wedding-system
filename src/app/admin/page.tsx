@@ -29,7 +29,7 @@ const eventStatusClasses: Record<string, string> = {
 };
 
 function tabButtonClasses(active: boolean) {
-  return `rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+  return `min-h-10 flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition sm:min-h-0 sm:flex-none ${
     active
       ? "bg-indigo-600 text-white shadow"
       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -51,10 +51,10 @@ export default function AdminCrmPage() {
   } = useEventEngine();
 
   return (
-    <div className="bg-zinc-100 px-4 py-4 sm:px-6 dark:bg-zinc-950">
+    <div className="px-3 py-4 sm:px-6 sm:py-6">
       <div className="mx-auto max-w-6xl">
         <header className="mb-3">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-lg font-bold sm:text-xl text-zinc-900 dark:text-zinc-50">
             לוח בקרה - הנהלה
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
@@ -62,7 +62,7 @@ export default function AdminCrmPage() {
           </p>
         </header>
 
-        <nav className="mb-4 inline-flex gap-1 rounded-xl bg-white p-1 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900">
+        <nav className="mb-4 flex w-full gap-1 rounded-xl sm:inline-flex sm:w-auto bg-white p-1 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900">
           <button
             type="button"
             onClick={() => setActiveTab("leads")}
@@ -101,8 +101,8 @@ export default function AdminCrmPage() {
                   const lastLog = getActivityLog(event.id).at(-1);
 
                   return (
-                    <li key={event.id} className="flex flex-col gap-2 px-4 py-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                    <li key={event.id} className="flex flex-col gap-2 px-3 py-3 sm:px-4 sm:py-2.5">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
                         <Link
                           href={`/couple/${event.id}`}
                           className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition hover:opacity-80"
@@ -126,7 +126,7 @@ export default function AdminCrmPage() {
 
                         <Link
                           href={`/live/${event.id}`}
-                          className="shrink-0 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
+                          className="flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 px-3 py-1.5 text-sm font-semibold sm:min-h-0 sm:text-xs text-amber-700 transition hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
                         >
                           כניסה למסך לייב (דיילות)
                         </Link>
@@ -141,7 +141,7 @@ export default function AdminCrmPage() {
                           onChange={(e) =>
                             setPhase(event.id, e.target.value as EventPhase)
                           }
-                          className={`rounded-full border-0 px-2.5 py-1 text-xs font-semibold outline-none ring-1 ring-inset ring-black/5 transition focus:ring-2 focus:ring-indigo-500/50 ${PHASE_BADGE_CLASSES[phase]}`}
+                          className={`min-h-9 rounded-full border-0 px-2.5 py-1 text-xs font-semibold sm:min-h-0 outline-none ring-1 ring-inset ring-black/5 transition focus:ring-2 focus:ring-indigo-500/50 ${PHASE_BADGE_CLASSES[phase]}`}
                         >
                           {PHASE_ORDER.map((p) => (
                             <option key={p} value={p}>
@@ -159,7 +159,7 @@ export default function AdminCrmPage() {
                                 "נשלח גל SMS נוסף (Mock) למוזמנים שטרם אישרו",
                               )
                             }
-                            className="rounded-lg bg-violet-100 px-2.5 py-1 text-xs font-semibold text-violet-700 transition hover:bg-violet-200 dark:bg-violet-500/10 dark:text-violet-400 dark:hover:bg-violet-500/20"
+                            className="min-h-9 rounded-lg bg-violet-100 px-2.5 py-1 text-xs sm:min-h-0 font-semibold text-violet-700 transition hover:bg-violet-200 dark:bg-violet-500/10 dark:text-violet-400 dark:hover:bg-violet-500/20"
                           >
                             שלח גל SMS נוסף (Mock)
                           </button>
@@ -168,7 +168,7 @@ export default function AdminCrmPage() {
                         <button
                           type="button"
                           onClick={() => setCheckInQrEventId(event.id)}
-                          className="rounded-lg bg-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                          className="min-h-9 rounded-lg bg-zinc-200 px-2.5 py-1 text-xs sm:min-h-0 font-semibold text-zinc-700 transition hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
                         >
                           QR לצ&apos;ק-אין עצמאי
                         </button>

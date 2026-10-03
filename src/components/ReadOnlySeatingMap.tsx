@@ -1,4 +1,4 @@
-import { getCategoryColorClasses } from "@/lib/categoryColors";
+import { getGroupColorClasses } from "@/lib/groupColors";
 import { formatTableLabel } from "@/lib/tableDisplay";
 import type { Guest } from "@/types/guest";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
@@ -46,9 +46,9 @@ function TableCard({ table, guests }: { table: SeatingTable; guests: Guest[] }) 
                 )}
               </span>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getCategoryColorClasses(guest.category)}`}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${getGroupColorClasses(guest.group)}`}
               >
-                {guest.category}
+                {guest.group}
               </span>
             </li>
           ))}

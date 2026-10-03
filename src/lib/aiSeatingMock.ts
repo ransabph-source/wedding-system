@@ -11,8 +11,8 @@ export interface AiSeatingResult {
   unassignedGuestIds: string[];
   tablesUsed: number;
   overbookAllowance: number;
-  // Guests placed at a table outside their own category because every
-  // same-category / fresh table was full (rule: leftover pass only).
+  // Guests placed at a table outside their own group because every
+  // same-group / fresh table was full (rule: leftover pass only).
   mixedTableGuestCount: number;
 }
 
@@ -83,7 +83,7 @@ export function extractLastName(name: string): string {
 }
 
 /**
- * Groups guests within a category into "units" that should ideally sit
+ * Splits a group's guests into "units" that should ideally sit
  * together: guests sharing a detected last name form one unit, everyone
  * else is their own solo unit.
  */
@@ -101,31 +101,31 @@ function buildFamilyUnits(guests: Guest[]): Guest[][] {
 }
 
 /**
- * Reads which category (if any) already "owns" each table, based on
+ * Reads which group (if any) already "owns" each table, based on
  * guests already seated there. A table with guests from more than one
- * category is treated as already mixed (fair game for the leftover
+ * group is treated as already mixed (fair game for the leftover
  * pass only); an empty table is left unset ("fresh").
  */
-function buildInitialTableCategoryMap(
+function buildInitialTableGroupMap(
   tables: SeatingTable[],
   allGuests: Guest[],
 ): Map<string, string | null> {
   const map = new Map<string, string | null>();
 
   for (const table of tables) {
-    const occupantCategories = new Set(
+    const occupantGroups = new Set(
       allGuests
         .filter(
           (guest) =>
             guest.seatingAssignment?.kind === "table" &&
             guest.seatingAssignment.id === table.id,
         )
-        .map((guest) => guest.category || "ללא קטגוריה"),
+        .map((guest) => guest.group || "ללא קבוצה"),
     );
 
-    if (occupantCategories.size === 1) {
-      map.set(table.id, [...occupantCategories][0]);
-    } else if (occupantCategories.size > 1) {
+    if (occupantGroups.size === 1) {
+      map.set(table.id, [...occupantGroups][0]);
+    } else if (occupantGroups.size > 1) {
       map.set(table.id, null);
     }
     // Fresh/empty tables are left unset; Map#get returns undefined for them.
@@ -139,10 +139,10 @@ function buildInitialTableCategoryMap(
  *
  * 1. Strict party grouping - a guest record's partySize is always seated
  *    as one atomic block on a single table; it is never split.
- * 2. Category cohesion - a table is claimed by the first category seated
- *    there and stays exclusive to it, unless every same-category/fresh
+ * 2. Group cohesion - a table is claimed by the first group seated
+ *    there and stays exclusive to it, unless every same-group/fresh
  *    table is full, in which case a final leftover pass allows mixing.
- * 3. Smart gap filling - within a category, parties are placed largest
+ * 3. Smart gap filling - within a group, parties are placed largest
  *    first using best-fit table selection, so a party of 1-2 naturally
  *    lands on a table with exactly 1-2 seats left instead of opening a
  *    new table.
@@ -174,28 +174,28 @@ export function generateMockSeatingPlan(
     );
   }
 
-  const tableCategory = buildInitialTableCategoryMap(
+  const tableGroup = buildInitialTableGroupMap(
     availableTables,
     allGuests,
   );
 
-  const categories = new Map<string, Guest[]>();
+  const groups = new Map<string, Guest[]>();
   for (const guest of unseatedGuests) {
-    const key = guest.category || "ללא קטגוריה";
-    if (!categories.has(key)) categories.set(key, []);
-    categories.get(key)!.push(guest);
+    const key = guest.group || "ללא קבוצה";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(guest);
   }
 
   const assignments: AiSeatingAssignment[] = [];
   const leftoverGuests: Guest[] = [];
 
-  for (const [category, categoryGuests] of categories) {
+  for (const [group, groupGuests] of groups) {
     const eligibleTables = availableTables.filter((table) => {
-      const owner = tableCategory.get(table.id);
-      return owner === undefined || owner === category;
+      const owner = tableGroup.get(table.id);
+      return owner === undefined || owner === group;
     });
 
-    const units = buildFamilyUnits(categoryGuests)
+    const units = buildFamilyUnits(groupGuests)
       .map((members) => ({
         members: [...members].sort((a, b) => b.partySize - a.partySize),
         totalSize: members.reduce((sum, member) => sum + member.partySize, 0),
@@ -218,8 +218,8 @@ export function generateMockSeatingPlan(
           wholeUnitTableId,
           (remainingCapacity.get(wholeUnitTableId) ?? 0) - unit.totalSize,
         );
-        if (tableCategory.get(wholeUnitTableId) === undefined) {
-          tableCategory.set(wholeUnitTableId, category);
+        if (tableGroup.get(wholeUnitTableId) === undefined) {
+          tableGroup.set(wholeUnitTableId, group);
         }
         continue;
       }
@@ -241,8 +241,8 @@ export function generateMockSeatingPlan(
             tableId,
             (remainingCapacity.get(tableId) ?? 0) - member.partySize,
           );
-          if (tableCategory.get(tableId) === undefined) {
-            tableCategory.set(tableId, category);
+          if (tableGroup.get(tableId) === undefined) {
+            tableGroup.set(tableId, group);
           }
           preferredTableId = tableId;
         } else {
@@ -253,7 +253,7 @@ export function generateMockSeatingPlan(
   }
 
   // Final leftover pass: only guests who found no room in their own
-  // category get placed on a mixed table, largest parties first.
+  // group get placed on a mixed table, largest parties first.
   const unassignedGuestIds: string[] = [];
   let mixedTableGuestCount = 0;
   const sortedLeftover = [...leftoverGuests].sort(
@@ -273,8 +273,8 @@ export function generateMockSeatingPlan(
         tableId,
         (remainingCapacity.get(tableId) ?? 0) - guest.partySize,
       );
-      if (tableCategory.get(tableId) !== guest.category) {
-        tableCategory.set(tableId, null);
+      if (tableGroup.get(tableId) !== guest.group) {
+        tableGroup.set(tableId, null);
       }
       mixedTableGuestCount += 1;
     } else {

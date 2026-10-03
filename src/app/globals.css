@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Mobile-first touch defaults. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS Safari zooms into any focused field whose text is under 16px, which
+   shifts the whole layout. Kept outside a cascade layer on purpose so it
+   wins over Tailwind's text-xs/text-sm utilities on phones only. */
+@media (max-width: 639.98px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}

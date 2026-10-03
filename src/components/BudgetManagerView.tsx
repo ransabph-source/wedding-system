@@ -195,7 +195,7 @@ export default function BudgetManagerView({
     <div className="flex flex-col gap-3">
       <div className="overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
         <div className="overflow-x-auto">
-          <table className="w-full text-right">
+          <table className="w-full min-w-[40rem] text-right">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
@@ -255,7 +255,7 @@ export default function BudgetManagerView({
                           type="button"
                           onClick={() => handleDeleteClick(item)}
                           aria-label={`מחיקת ${item.category || item.supplierName || "שורה"}`}
-                          className="grid h-7 w-7 place-items-center rounded-full text-rose-500 transition hover:bg-rose-100 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                          className="grid h-9 w-9 place-items-center rounded-full text-rose-500 md:h-7 md:w-7 transition hover:bg-rose-100 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10"
                         >
                           <svg
                             className="h-4 w-4"
@@ -284,7 +284,7 @@ export default function BudgetManagerView({
           <button
             type="button"
             onClick={handleAddRow}
-            className="w-full rounded-lg border-2 border-dashed border-zinc-300 px-4 py-1.5 text-sm font-semibold text-zinc-500 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
+            className="min-h-11 w-full rounded-lg border-2 border-dashed border-zinc-300 px-4 py-1.5 sm:min-h-0 text-sm font-semibold text-zinc-500 transition hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
           >
             + הוספת הוצאה
           </button>
@@ -292,7 +292,7 @@ export default function BudgetManagerView({
         )}
       </div>
 
-      <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/95 p-3 shadow-lg ring-1 ring-black/5 backdrop-blur dark:bg-zinc-900/95 dark:ring-white/10">
+      <div className="sticky bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-white/95 p-3 shadow-lg ring-1 ring-black/5 backdrop-blur dark:bg-zinc-900/95 dark:ring-white/10">
         <div className="flex flex-wrap items-center gap-4">
           <div>
             <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">

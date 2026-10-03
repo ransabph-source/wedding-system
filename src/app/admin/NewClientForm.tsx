@@ -76,7 +76,7 @@ export default function NewClientForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`grid gap-4 sm:grid-cols-2 ${className}`}
+      className={`grid gap-3 sm:grid-cols-2 sm:gap-4 ${className}`}
     >
       <div className="sm:col-span-2">
         <label htmlFor={id("coupleNames")} className={labelClasses}>
@@ -175,11 +175,11 @@ export default function NewClientForm({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+      <div className="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 rounded-lg bg-indigo-600 px-4 py-2 text-sm sm:min-h-0 font-semibold text-white shadow transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? "יוצר לקוח..." : "יצירת לקוח"}
         </button>
@@ -188,7 +188,7 @@ export default function NewClientForm({
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="min-h-11 rounded-lg px-4 py-2 text-sm font-semibold text-zinc-600 sm:min-h-0 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             ביטול
           </button>

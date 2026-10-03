@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import LogCallModal from "@/components/LogCallModal";
-import { getCategoryColorClasses } from "@/lib/categoryColors";
+import { getGroupColorClasses } from "@/lib/groupColors";
 import type { Guest, RsvpStatus } from "@/types/guest";
 
 interface RsvpManagementViewProps {
@@ -97,21 +97,21 @@ export default function RsvpManagementView({
             <button
               type="button"
               onClick={() => onSetRsvpStatus(guest.id, "confirmed")}
-              className="rounded-lg bg-emerald-100 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
+              className="min-h-9 rounded-lg bg-emerald-100 px-2.5 py-1.5 text-xs md:min-h-0 font-semibold text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
             >
               אישרו הגעה
             </button>
             <button
               type="button"
               onClick={() => onSetRsvpStatus(guest.id, "declined")}
-              className="rounded-lg bg-rose-100 px-2.5 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
+              className="min-h-9 rounded-lg bg-rose-100 px-2.5 py-1.5 text-xs md:min-h-0 font-semibold text-rose-700 transition hover:bg-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
             >
               לא מגיעים
             </button>
             <button
               type="button"
               onClick={() => onSetRsvpStatus(guest.id, "needs_call")}
-              className="rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
+              className="min-h-9 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs md:min-h-0 font-semibold text-amber-700 transition hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
             >
               לטיפול טלפוני
             </button>
@@ -122,7 +122,7 @@ export default function RsvpManagementView({
           <button
             type="button"
             onClick={() => setCallModalGuestId(guest.id)}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800"
+            className="flex min-h-9 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs md:min-h-0 font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800"
           >
             {PhoneIcon}
             רישום שיחה
@@ -170,7 +170,7 @@ export default function RsvpManagementView({
             <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pe-1">
               {columnGuests.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-zinc-300 px-3 py-6 text-center text-sm text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
-                  אין אורחים בקטגוריה זו
+                  אין אורחים ברשימה זו
                 </p>
               ) : (
                 columnGuests.map((guest) => (
@@ -199,9 +199,9 @@ export default function RsvpManagementView({
                     </div>
 
                     <span
-                      className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-medium ${getCategoryColorClasses(guest.category)}`}
+                      className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-medium ${getGroupColorClasses(guest.group)}`}
                     >
-                      {guest.category}
+                      {guest.group}
                     </span>
 
                     {!readOnly && renderActions(guest)}

@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { getCategoryColorClasses } from "@/lib/categoryColors";
+import { getGroupColorClasses } from "@/lib/groupColors";
 
-interface CategoryManagerProps {
-  categories: string[];
-  onAddCategory: (name: string) => void;
-  onDeleteCategory: (name: string) => void;
+interface GroupManagerProps {
+  groups: string[];
+  onAddGroup: (name: string) => void;
+  onDeleteGroup: (name: string) => void;
 }
 
-export default function CategoryManager({
-  categories,
-  onAddCategory,
-  onDeleteCategory,
-}: CategoryManagerProps) {
+export default function GroupManager({
+  groups,
+  onAddGroup,
+  onDeleteGroup,
+}: GroupManagerProps) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -22,12 +22,12 @@ export default function CategoryManager({
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    if (categories.includes(trimmed)) {
-      setError("הקטגוריה כבר קיימת ברשימה");
+    if (groups.includes(trimmed)) {
+      setError("הקבוצה כבר קיימת ברשימה");
       return;
     }
 
-    onAddCategory(trimmed);
+    onAddGroup(trimmed);
     setName("");
     setError(null);
   }
@@ -35,7 +35,7 @@ export default function CategoryManager({
   return (
     <div className="rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
       <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-        ניהול קטגוריות
+        ניהול קבוצות
       </h3>
 
       <form onSubmit={handleSubmit} className="mt-2 flex gap-2">
@@ -46,14 +46,14 @@ export default function CategoryManager({
             setName(e.target.value);
             setError(null);
           }}
-          placeholder="שם קטגוריה חדשה"
+          placeholder="שם קבוצה חדשה"
           className="flex-1 rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
         />
         <button
           type="submit"
           className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800"
         >
-          הוסף קטגוריה
+          הוסף קבוצה
         </button>
       </form>
 
@@ -64,21 +64,21 @@ export default function CategoryManager({
       )}
 
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {categories.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="text-sm text-zinc-400 dark:text-zinc-500">
-            אין קטגוריות עדיין - הוסיפו קטגוריה כדי להתחיל
+            אין קבוצות עדיין - הוסיפו קבוצה כדי להתחיל
           </p>
         ) : (
-          categories.map((category) => (
+          groups.map((group) => (
             <span
-              key={category}
-              className={`inline-flex items-center gap-2 rounded-full py-1.5 pe-2 ps-3 text-sm font-medium ${getCategoryColorClasses(category)}`}
+              key={group}
+              className={`inline-flex items-center gap-2 rounded-full py-1.5 pe-2 ps-3 text-sm font-medium ${getGroupColorClasses(group)}`}
             >
-              {category}
+              {group}
               <button
                 type="button"
-                onClick={() => onDeleteCategory(category)}
-                aria-label={`מחיקת קטגוריה ${category}`}
+                onClick={() => onDeleteGroup(group)}
+                aria-label={`מחיקת קבוצה ${group}`}
                 className="grid h-4 w-4 place-items-center rounded-full text-xs opacity-70 transition hover:opacity-100"
               >
                 ✕

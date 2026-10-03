@@ -12,10 +12,10 @@ export default function AdminDashboardPage() {
   const [created, setCreated] = useState<CreatedClient | null>(null);
 
   return (
-    <div className="bg-zinc-100 px-4 py-4 sm:px-6 dark:bg-zinc-950">
+    <div className="px-3 py-4 sm:px-6 sm:py-6">
       <div className="mx-auto max-w-4xl">
         <header className="mb-3">
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-lg font-bold sm:text-xl text-zinc-900 dark:text-zinc-50">
             יצירת לקוח חדש
           </h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
@@ -24,7 +24,7 @@ export default function AdminDashboardPage() {
         </header>
 
         <NewClientForm
-          className="rounded-xl bg-white p-4 shadow-md ring-1 ring-black/5 dark:bg-zinc-900"
+          className="rounded-xl bg-white p-3 shadow-md sm:p-4 ring-1 ring-black/5 dark:bg-zinc-900"
           onCreated={(result) => {
             setCreated(result);
             setClientsReloadKey((key) => key + 1);
@@ -40,7 +40,7 @@ export default function AdminDashboardPage() {
             <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-400">
               {created.event.coupleNames} · {created.event.venue} ·{" "}
               {created.event.eventDate} · כניסה עם{" "}
-              <span dir="ltr">{created.email}</span>
+              <span dir="ltr" className="break-all">{created.email}</span>
             </p>
             <Link
               href={`/couple/${created.event.id}`}

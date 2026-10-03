@@ -18,8 +18,9 @@ function errorMessage(err: unknown) {
   return message.replace(/^.*failed \(\d+\): /, "");
 }
 
+// Taller on phones so they're comfortable touch targets.
 const actionButtonClasses =
-  "rounded-lg px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-1 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:px-2.5 sm:text-xs";
 
 interface ClientListProps {
   // Change this to reload the list, e.g. after creating a client.
@@ -180,8 +181,8 @@ function ClientRow({
   const events = client.events.length > 0 ? client.events : [null];
 
   return (
-    <li className="flex flex-col gap-2 px-4 py-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <li className="flex flex-col gap-3 px-3 py-3 sm:gap-2 sm:px-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1 space-y-2">
           {events.map((event, i) => (
             <dl
@@ -204,7 +205,7 @@ function ClientRow({
               </Detail>
               <Detail label="אימייל">
                 {userId ? (
-                  <span dir="ltr">{client.email ?? "—"}</span>
+                  <span dir="ltr" title={client.email ?? undefined}>{client.email ?? "—"}</span>
                 ) : (
                   <span className="text-zinc-400 dark:text-zinc-500">
                     ללא חשבון
@@ -219,7 +220,7 @@ function ClientRow({
           ))}
         </div>
 
-        <div className="flex shrink-0 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
           {/* Only accounts have a password; delete is always available. */}
           {userId && (
             <button
@@ -247,11 +248,11 @@ function ClientRow({
       {userId && editingPassword && (
         <form
           onSubmit={handlePasswordSubmit}
-          className="flex flex-wrap items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/50"
+          className="grid grid-cols-2 items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 sm:flex sm:flex-wrap dark:bg-zinc-800/50"
         >
           <label
             htmlFor={`password-${client.key}`}
-            className="text-xs font-semibold text-zinc-500 dark:text-zinc-400"
+            className="col-span-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400"
           >
             סיסמה חדשה
           </label>
@@ -265,7 +266,7 @@ function ClientRow({
             autoFocus
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-48 min-w-0 flex-1 rounded-lg border-0 bg-white px-3 py-1.5 text-sm text-zinc-900 outline-none ring-1 ring-inset ring-zinc-200 transition focus:ring-2 focus:ring-indigo-500/50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700"
+            className="col-span-2 min-w-0 rounded-lg border-0 bg-white px-3 py-2 text-sm sm:w-48 sm:flex-1 sm:py-1.5 text-zinc-900 outline-none ring-1 ring-inset ring-zinc-200 transition focus:ring-2 focus:ring-indigo-500/50 sm:flex-none dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700"
           />
           <button
             type="submit"

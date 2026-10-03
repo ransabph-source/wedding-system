@@ -2,7 +2,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import type { Guest } from "@/types/guest";
-import { getCategoryColorClasses } from "@/lib/categoryColors";
+import { getGroupColorClasses } from "@/lib/groupColors";
 import {
   getConfirmedCount,
   getRsvpFractionClasses,
@@ -11,12 +11,12 @@ import {
 
 interface GuestTableProps {
   guests: Guest[];
-  categories: string[];
+  groups: string[];
   isFiltered?: boolean;
   readOnly?: boolean;
   onUpdateGuest: (
     guestId: string,
-    updates: Partial<Pick<Guest, "name" | "phone" | "partySize" | "category">>,
+    updates: Partial<Pick<Guest, "name" | "phone" | "partySize" | "group">>,
   ) => void;
   onDeleteGuest: (guestId: string) => void;
   // Omitted when RSVPs are locked for the current phase.
@@ -36,11 +36,11 @@ const editInputClasses =
   "w-full rounded-md border border-indigo-400 bg-white px-2 py-1 text-inherit outline-none ring-2 ring-indigo-500/30 dark:bg-zinc-800 dark:text-zinc-50";
 
 const checkboxClasses =
-  "h-4 w-4 cursor-pointer rounded border-zinc-300 accent-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600";
+  "h-5 w-5 cursor-pointer md:h-4 md:w-4 rounded border-zinc-300 accent-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600";
 
 export default function GuestTable({
   guests,
-  categories,
+  groups,
   isFiltered = false,
   readOnly = false,
   onUpdateGuest,
@@ -201,7 +201,7 @@ export default function GuestTable({
         type="button"
         onClick={() => startEditing(guest, field)}
         dir={dir}
-        className="w-full rounded-md px-1.5 py-1 text-right transition hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+        className="min-h-9 w-full rounded-md px-1.5 py-1 text-right transition hover:bg-indigo-50 md:min-h-0 dark:hover:bg-indigo-500/10"
       >
         {renderCellValue(guest, field)}
       </button>
@@ -237,7 +237,7 @@ export default function GuestTable({
         type="button"
         onClick={() => startEditing(guest, "partySize")}
         title={`${label} · לחצו לעריכת מספר המוזמנים`}
-        className="rounded-md px-1.5 py-1 transition hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+        className="min-h-9 rounded-md px-1.5 py-1 transition hover:bg-indigo-50 md:min-h-0 dark:hover:bg-indigo-500/10"
       >
         {pill}
       </button>
@@ -246,9 +246,33 @@ export default function GuestTable({
 
   return (
     <div className="h-full overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
-      <div className="h-full overflow-auto">
-        <table className="w-full text-right">
-          <thead className="sticky top-0 z-10">
+      {/* Phones get a card per guest instead of table columns, so the
+          header row (and its select-all box) is replaced by this bar. */}
+      {isSelectable && guests.length > 0 && (
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 border-b border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-600 md:hidden dark:border-zinc-800 dark:bg-zinc-800/90 dark:text-zinc-300">
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someVisibleSelected;
+            }}
+            onChange={toggleSelectAll}
+            className={checkboxClasses}
+          />
+          {allVisibleSelected ? "בטל בחירה" : "בחר הכל"}
+          <span className="ms-auto text-xs text-zinc-400 dark:text-zinc-500">
+            {guests.length} אורחים
+          </span>
+        </label>
+      )}
+      {/* Bottom padding keeps the last card clear of the bulk-action bar. */}
+      <div
+        className={`h-full overflow-auto ${
+          isSelectable && selectedGuests.length > 0 ? "pb-28 md:pb-0" : ""
+        }`}
+      >
+        <table className="block w-full text-right md:table">
+          <thead className="sticky top-0 z-10 hidden md:table-header-group">
             <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/90">
               {isSelectable && (
                 <th className="w-10 px-3 py-2">
@@ -273,7 +297,7 @@ export default function GuestTable({
                 טלפון
               </th>
               <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                קטגוריה
+                קבוצה
               </th>
               <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 אישרו / הוזמנו
@@ -283,9 +307,9 @@ export default function GuestTable({
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="block md:table-row-group">
             {guests.length === 0 ? (
-              <tr>
+              <tr className="block md:table-row">
                 <td
                   colSpan={columnCount}
                   className="px-6 py-8 text-center text-zinc-400 dark:text-zinc-500"
@@ -299,14 +323,14 @@ export default function GuestTable({
               guests.map((guest) => (
                 <tr
                   key={guest.id}
-                  className={`border-b border-zinc-100 last:border-0 dark:border-zinc-800 ${
+                  className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-b border-zinc-100 px-3 py-2.5 last:border-0 md:table-row md:p-0 dark:border-zinc-800 ${
                     selectedGuestIds.has(guest.id)
                       ? "bg-indigo-50/70 hover:bg-indigo-50 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/15"
                       : "hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
                   }`}
                 >
                   {isSelectable && (
-                    <td className="px-3 py-1">
+                    <td className="col-start-1 row-start-1 md:px-3 md:py-1">
                       <input
                         type="checkbox"
                         checked={selectedGuestIds.has(guest.id)}
@@ -316,54 +340,54 @@ export default function GuestTable({
                       />
                     </td>
                   )}
-                  <td className="px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100">
+                  <td className="col-start-2 row-start-1 min-w-0 text-base font-semibold text-zinc-800 md:px-2.5 md:py-1 md:text-sm md:font-normal dark:text-zinc-100">
                     {renderEditableCell(guest, "name")}
                   </td>
                   <td
-                    className="px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100"
+                    className="col-span-2 col-start-2 row-start-2 text-sm text-zinc-600 md:px-2.5 md:py-1 md:text-zinc-800 dark:text-zinc-300 md:dark:text-zinc-100"
                     dir="ltr"
                   >
                     {renderEditableCell(guest, "phone", "ltr")}
                   </td>
-                  <td className="px-2.5 py-1">
+                  <td className="col-start-2 row-start-3 min-w-0 md:px-2.5 md:py-1">
                     {readOnly ? (
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getCategoryColorClasses(guest.category)}`}
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getGroupColorClasses(guest.group)}`}
                       >
-                        {guest.category}
+                        {guest.group}
                       </span>
                     ) : (
                       <select
-                        value={guest.category}
+                        value={guest.group}
                         onChange={(e) =>
-                          onUpdateGuest(guest.id, { category: e.target.value })
+                          onUpdateGuest(guest.id, { group: e.target.value })
                         }
-                        className={`rounded-full border-0 px-2 py-0.5 text-xs font-medium outline-none ring-1 ring-inset ring-black/5 transition focus:ring-2 focus:ring-indigo-500/50 ${getCategoryColorClasses(guest.category)}`}
+                        className={`max-w-full rounded-full border-0 px-2.5 py-1 text-xs font-medium outline-none md:px-2 md:py-0.5 ring-1 ring-inset ring-black/5 transition focus:ring-2 focus:ring-indigo-500/50 ${getGroupColorClasses(guest.group)}`}
                       >
-                        {!categories.includes(guest.category) && (
-                          <option value={guest.category}>
-                            {guest.category}
+                        {!groups.includes(guest.group) && (
+                          <option value={guest.group}>
+                            {guest.group}
                           </option>
                         )}
-                        {categories.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
+                        {groups.map((groupName) => (
+                          <option key={groupName} value={groupName}>
+                            {groupName}
                           </option>
                         ))}
                       </select>
                     )}
                   </td>
-                  <td className="px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100">
+                  <td className="col-start-3 row-start-3 justify-self-end text-sm text-zinc-800 md:px-2.5 md:py-1 dark:text-zinc-100">
                     {renderRsvpFractionCell(guest)}
                   </td>
-                  <td className="px-2.5 py-1">
+                  <td className="col-start-3 row-start-1 md:px-2.5 md:py-1">
                     <div className="flex items-center justify-end gap-1.5">
                       {onConfirmGuest && guest.rsvpStatus !== "confirmed" && (
                         <button
                           type="button"
                           onClick={() => onConfirmGuest(guest.id)}
                           title={`סימון ${guest.name} כמאשר/ת הגעה ללא אישור דיגיטלי`}
-                          className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 transition hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-400/20 dark:hover:bg-emerald-500/20"
+                          className="min-h-9 whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-xs md:min-h-0 md:px-2.5 md:py-0.5 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 transition hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-400/20 dark:hover:bg-emerald-500/20"
                         >
                           אישור ידני
                         </button>
@@ -373,7 +397,7 @@ export default function GuestTable({
                           type="button"
                           onClick={() => handleDeleteClick(guest)}
                           aria-label={`מחיקת ${guest.name}`}
-                          className="grid h-7 w-7 place-items-center rounded-full text-rose-500 transition hover:bg-rose-100 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                          className="grid h-9 w-9 place-items-center rounded-full text-rose-500 md:h-7 md:w-7 transition hover:bg-rose-100 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10"
                         >
                           <svg
                             className="h-4 w-4"
@@ -402,7 +426,7 @@ export default function GuestTable({
         <div
           role="region"
           aria-label="פעולות על אורחים נבחרים"
-          className="fixed inset-x-3 bottom-4 z-40 mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 rounded-2xl bg-zinc-900 px-4 py-3 text-white shadow-2xl ring-1 ring-white/10 dark:bg-zinc-800"
+          className="fixed inset-x-3 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-2xl bg-zinc-900 px-4 py-3 text-white shadow-2xl ring-1 ring-white/10 dark:bg-zinc-800"
         >
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold">
@@ -411,17 +435,17 @@ export default function GuestTable({
             <button
               type="button"
               onClick={clearSelection}
-              className="text-xs font-medium text-zinc-400 underline-offset-2 transition hover:text-white hover:underline"
+              className="min-h-9 text-xs font-medium text-zinc-400 underline-offset-2 md:min-h-0 transition hover:text-white hover:underline"
             >
               בטל בחירה
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             {canBulkConfirm && (
               <button
                 type="button"
                 onClick={handleBulkConfirmClick}
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-500 active:bg-emerald-700"
+                className="min-h-10 flex-1 rounded-lg bg-emerald-600 px-3 py-1.5 sm:min-h-0 sm:flex-none text-sm font-semibold text-white transition hover:bg-emerald-500 active:bg-emerald-700"
               >
                 אישור הגעה גורף
               </button>
@@ -430,7 +454,7 @@ export default function GuestTable({
               <button
                 type="button"
                 onClick={handleBulkDeleteClick}
-                className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-rose-500 active:bg-rose-700"
+                className="min-h-10 flex-1 rounded-lg bg-rose-600 px-3 py-1.5 sm:min-h-0 sm:flex-none text-sm font-semibold text-white transition hover:bg-rose-500 active:bg-rose-700"
               >
                 מחיקה מרובה
               </button>
