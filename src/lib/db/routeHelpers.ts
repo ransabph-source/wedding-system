@@ -90,8 +90,25 @@ interface CollectionConfig<Item extends { id: string }, Row> {
   table: string;
   fromRow: (row: Row) => Item;
   toRow: (eventId: string, item: Item) => Row;
+  // Whether staff may read the collection. Defaults to true; private data
+  // such as the couple's gift ledger turns it off.
+  staffCanRead?: boolean;
   // Columns staff may change through PUT. Without it, staff are read-only.
   staffWritableColumns?: (keyof Row & string)[];
+  // Checks a staff PUT before it's applied (e.g. that a guest is only moved
+  // to one of the event's own tables), returning an error response to refuse.
+  validateStaffUpdate?: (
+    eventId: string,
+    rows: Record<string, unknown>[],
+  ) => Promise<Response | null>;
+  // Lets staff create items through POST (e.g. hostesses adding walk-in
+  // guests). Validates the rows and returns what to insert, with any columns
+  // staff don't control forced to safe values, or an error response. Without
+  // it, staff can't create items.
+  prepareStaffInsert?: (
+    eventId: string,
+    rows: Record<string, unknown>[],
+  ) => Promise<Record<string, unknown>[] | Response>;
   // The couple-portal section this collection belongs to, which decides in
   // which event phases couples may change it (see eventPhaseRules).
   coupleSection: CoupleSection;
@@ -125,7 +142,7 @@ async function getEventPhase(eventId: string): Promise<EventPhase | null> {
 }
 
 // A 403 if the event's phase locks any of the sections for couples.
-async function checkCouplePhase(
+export async function checkCouplePhase(
   eventId: string,
   sections: Iterable<CoupleSection>,
 ): Promise<Response | null> {
@@ -148,13 +165,17 @@ async function checkCouplePhase(
 //   PUT    → create or replace items by ID (body: Item[])
 //   DELETE → remove items (body: { ids: string[] })
 // Reads need "view" access to the event and writes need "edit", except that
-// staff may PUT changes to staffWritableColumns of existing items. A couple's
+// staff may PUT changes to staffWritableColumns of existing items and, where
+// prepareStaffInsert allows it, POST new items. A couple's
 // writes must also be allowed by the event's phase; admins bypass phase locks.
 export function createCollectionHandlers<Item extends { id: string }, Row>({
   table,
   fromRow,
   toRow,
+  staffCanRead = true,
   staffWritableColumns,
+  validateStaffUpdate,
+  prepareStaffInsert,
   coupleSection,
   coupleColumnSections = {},
 }: CollectionConfig<Item, Row>) {
@@ -171,6 +192,8 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
     if (!staffWritableColumns) {
       return jsonError("You don't have access to this event", 403);
     }
+    const refused = await validateStaffUpdate?.(eventId, rows);
+    if (refused) return refused;
     const updated: Row[] = [];
     for (const row of rows) {
       const changes = Object.fromEntries(
@@ -235,6 +258,9 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
       const { eventId } = await ctx.params;
       const auth = await authorizeEvent(eventId, "view");
       if (auth instanceof Response) return auth;
+      if (auth.role === "staff" && !staffCanRead) {
+        return jsonError("You don't have access to this event", 403);
+      }
       const { data, error } = await getSupabase()
         .from(table)
         .select("*")
@@ -248,14 +274,24 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
   const POST = withErrorHandling(
     async (request: Request, ctx: EventScopedContext) => {
       const { eventId } = await ctx.params;
-      const auth = await authorizeEvent(eventId, "edit");
+      const auth = await authorizeEvent(eventId, "view");
       if (auth instanceof Response) return auth;
-      if (auth.role === "couple") {
+      let rows = await readItems(request, eventId);
+      if (!rows) return jsonError("Expected an array of items with IDs", 400);
+      if (auth.role === "staff") {
+        if (!prepareStaffInsert) {
+          return jsonError("You don't have access to this event", 403);
+        }
+        const prepared = await prepareStaffInsert(eventId, rows);
+        if (prepared instanceof Response) return prepared;
+        rows = prepared;
+      } else if (!(await canAccessEvent(auth, eventId, "edit"))) {
+        return jsonError("You don't have access to this event", 403);
+      } else if (auth.role === "couple") {
         const locked = await checkCouplePhase(eventId, [coupleSection]);
         if (locked) return locked;
       }
-      const rows = await readItems(request, eventId);
-      if (!rows) return jsonError("Expected an array of items with IDs", 400);
+      // Inserts never overwrite: an existing ID fails the whole request.
       const { data, error } = await getSupabase()
         .from(table)
         .insert(rows)

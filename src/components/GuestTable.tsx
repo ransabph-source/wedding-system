@@ -21,6 +21,8 @@ interface GuestTableProps {
   onDeleteGuest: (guestId: string) => void;
   // Omitted when RSVPs are locked for the current phase.
   onConfirmGuest?: (guestId: string) => void;
+  // Returns a confirmed/declined guest to pending. Omitted when RSVPs are locked.
+  onResetRsvp?: (guestId: string) => void;
   onBulkConfirmGuests?: (guestIds: string[]) => void;
   onBulkDeleteGuests?: (guestIds: string[]) => void;
 }
@@ -46,6 +48,7 @@ export default function GuestTable({
   onUpdateGuest,
   onDeleteGuest,
   onConfirmGuest,
+  onResetRsvp,
   onBulkConfirmGuests,
   onBulkDeleteGuests,
 }: GuestTableProps) {
@@ -111,6 +114,12 @@ export default function GuestTable({
   function handleDeleteClick(guest: Guest) {
     if (window.confirm(`למחוק את ${guest.name} מרשימת המוזמנים?`)) {
       onDeleteGuest(guest.id);
+    }
+  }
+
+  function handleResetRsvpClick(guest: Guest) {
+    if (window.confirm(`לבטל את תשובת ההגעה של ${guest.name} ולהחזיר לממתין?`)) {
+      onResetRsvp?.(guest.id);
     }
   }
 
@@ -392,6 +401,18 @@ export default function GuestTable({
                           אישור ידני
                         </button>
                       )}
+                      {onResetRsvp &&
+                        (guest.rsvpStatus === "confirmed" ||
+                          guest.rsvpStatus === "declined") && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetRsvpClick(guest)}
+                            title={`החזרת ${guest.name} לסטטוס ממתין לתשובה`}
+                            className="min-h-9 whitespace-nowrap rounded-full bg-zinc-100 px-3 py-1 text-xs md:min-h-0 md:px-2.5 md:py-0.5 font-semibold text-zinc-600 ring-1 ring-inset ring-zinc-500/20 transition hover:bg-zinc-200 dark:bg-zinc-500/10 dark:text-zinc-300 dark:ring-zinc-400/20 dark:hover:bg-zinc-500/20"
+                          >
+                            בטל אישור
+                          </button>
+                        )}
                       {!readOnly && (
                         <button
                           type="button"

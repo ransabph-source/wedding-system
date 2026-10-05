@@ -1,6 +1,7 @@
 // Browser-side wrappers around the /api routes.
 import type { ClientAccount } from "@/types/client";
 import type { EventPhase, EventRecord } from "@/types/event";
+import type { Gift } from "@/types/gift";
 import type { Guest } from "@/types/guest";
 import type { Lead, LeadInput } from "@/types/lead";
 import type { StaffAccount } from "@/types/staff";
@@ -39,6 +40,54 @@ export function updateEventPhase(eventId: string, phase: EventPhase) {
     method: "PUT",
     body: JSON.stringify({ phase }),
   });
+}
+
+function giftsUrl(eventId: string) {
+  return `/api/events/${encodeURIComponent(eventId)}/gifts`;
+}
+
+export function fetchGifts(eventId: string) {
+  return request<Gift[]>(giftsUrl(eventId));
+}
+
+// Creates or replaces gifts by ID. keepalive lets a save started as the page
+// closes still reach the server.
+export function saveGifts(eventId: string, gifts: Gift[], keepalive = false) {
+  return request<Gift[]>(giftsUrl(eventId), {
+    method: "PUT",
+    body: JSON.stringify(gifts),
+    keepalive,
+  });
+}
+
+export function deleteGifts(eventId: string, ids: string[]) {
+  return request<void>(giftsUrl(eventId), {
+    method: "DELETE",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+function floorPlanUrl(eventId: string) {
+  return `/api/events/${encodeURIComponent(eventId)}/floor-plan`;
+}
+
+// A short-lived signed URL for the event's hall floor plan, or null.
+export async function fetchFloorPlanUrl(eventId: string) {
+  const { url } = await request<{ url?: string | null }>(floorPlanUrl(eventId));
+  return url || null;
+}
+
+export async function uploadFloorPlan(eventId: string, file: File) {
+  const { url } = await request<{ url: string }>(floorPlanUrl(eventId), {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  return url;
+}
+
+export function deleteFloorPlan(eventId: string) {
+  return request<void>(floorPlanUrl(eventId), { method: "DELETE" });
 }
 
 function collectionUrl(eventId: string, collection: EventCollection) {

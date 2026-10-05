@@ -4,12 +4,16 @@ import { useRef, type ChangeEvent } from "react";
 
 interface FloorPlanUploaderProps {
   floorPlanUrl: string | null;
-  onUpload: (dataUrl: string) => void;
+  isSaving?: boolean;
+  error?: string | null;
+  onUpload: (file: File) => void;
   onRemove: () => void;
 }
 
 export default function FloorPlanUploader({
   floorPlanUrl,
+  isSaving = false,
+  error = null,
   onUpload,
   onRemove,
 }: FloorPlanUploaderProps) {
@@ -17,30 +21,35 @@ export default function FloorPlanUploader({
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        onUpload(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
-
+    if (file) onUpload(file);
     if (inputRef.current) inputRef.current.value = "";
   }
 
   return (
     <div className="flex flex-col items-start justify-between gap-2 rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5 sm:flex-row sm:items-center dark:bg-zinc-900">
-      <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-        רקע תוכנית האולם
-      </h3>
+      <div>
+        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          רקע תוכנית האולם
+        </h3>
+        {isSaving ? (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">שומר...</p>
+        ) : error ? (
+          <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
+        ) : (
+          floorPlanUrl && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              נשמר ומוצג גם לדיילות במסך הלייב
+            </p>
+          )
+        )}
+      </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
         {floorPlanUrl && (
           <button
             type="button"
             onClick={onRemove}
+            disabled={isSaving}
             className="rounded-lg border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
             הסרה
@@ -69,7 +78,8 @@ export default function FloorPlanUploader({
           ref={inputRef}
           id="floor-plan-upload"
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          disabled={isSaving}
           onChange={handleFileChange}
           className="hidden"
         />

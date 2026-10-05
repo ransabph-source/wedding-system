@@ -21,3 +21,29 @@ export function getNextTableNumber(tables: SeatingTable[]): number {
     .filter((n) => Number.isFinite(n) && n > 0);
   return numbers.length > 0 ? Math.max(...numbers) + 1 : 1;
 }
+
+// A table's number, from either a bare "5" or an older "שולחן 5" name.
+// Custom names like "שולחן ההורים" have no number.
+const NUMBERED_TABLE_NAME = /^(\s*(?:שולחן\s*)?)(\d+)(\s*)$/;
+
+/**
+ * Closes the gap left by deleting a numbered table: every numbered table
+ * after it moves down by one, so 1, 3, 4 becomes 1, 2, 3. Only names change;
+ * IDs stay put, so guests seated at a renumbered table stay seated there.
+ * Untouched tables are returned as-is so only the renamed ones get saved.
+ */
+export function renumberTablesAfterDelete(
+  remainingTables: SeatingTable[],
+  deletedTable: Pick<SeatingTable, "name">,
+): SeatingTable[] {
+  const deletedMatch = NUMBERED_TABLE_NAME.exec(deletedTable.name);
+  if (!deletedMatch) return remainingTables;
+  const deletedNumber = Number(deletedMatch[2]);
+
+  return remainingTables.map((table) => {
+    const match = NUMBERED_TABLE_NAME.exec(table.name);
+    if (!match || Number(match[2]) <= deletedNumber) return table;
+    const [, prefix, number, suffix] = match;
+    return { ...table, name: `${prefix}${Number(number) - 1}${suffix}` };
+  });
+}

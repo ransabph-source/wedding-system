@@ -1,6 +1,6 @@
 import type { EventPhase } from "@/types/event";
 
-export type CoupleSection = "guests" | "seating" | "rsvp" | "budget";
+export type CoupleSection = "guests" | "seating" | "rsvp" | "budget" | "gifts";
 
 export const PHASE_ORDER: EventPhase[] = [
   "SETUP",
@@ -34,14 +34,16 @@ export const PHASE_BADGE_CLASSES: Record<EventPhase, string> = {
 
 // Which couple-portal tabs the couple may edit while an event sits in a given
 // phase. Everything else in that phase renders read-only with a lock banner.
-// An admin (god-mode) bypasses this table entirely.
+// An admin (god-mode) bypasses this table entirely. The gift ledger is the
+// couple's own record and gifts arrive during and after the event, so it stays
+// editable in every phase.
 const EDITABLE_SECTIONS: Record<EventPhase, CoupleSection[]> = {
-  SETUP: ["guests", "seating", "rsvp", "budget"],
-  RSVP_CAMPAIGN: ["budget"],
-  SEATING: ["seating", "budget"],
-  LOCKED_PRE_EVENT: [],
-  LIVE: [],
-  POST_EVENT: [],
+  SETUP: ["guests", "seating", "rsvp", "budget", "gifts"],
+  RSVP_CAMPAIGN: ["budget", "gifts"],
+  SEATING: ["seating", "budget", "gifts"],
+  LOCKED_PRE_EVENT: ["gifts"],
+  LIVE: ["gifts"],
+  POST_EVENT: ["gifts"],
 };
 
 export function isSectionEditableForCouple(

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import GuestChip from "@/components/GuestChip";
+import SeatingPickTarget from "@/components/SeatingPickTarget";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { formatTableLabel } from "@/lib/tableDisplay";
 import type { Guest } from "@/types/guest";
@@ -14,6 +15,7 @@ interface SeatingTableCardProps {
   onRemoveGuest: (guestId: string) => void;
   onEditTable: (tableId: string, updates: { name: string; capacity: number }) => void;
   onDeleteTable: (tableId: string) => void;
+  onEmptyTable: (tableId: string) => void;
   onToggleReserved: (tableId: string) => void;
   searchQuery?: string;
   // "source" = this table was picked first; "target" = another table was
@@ -29,6 +31,7 @@ export default function SeatingTableCard({
   onRemoveGuest,
   onEditTable,
   onDeleteTable,
+  onEmptyTable,
   onToggleReserved,
   searchQuery = "",
   swapMode = "idle",
@@ -37,7 +40,9 @@ export default function SeatingTableCard({
 }: SeatingTableCardProps) {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
   const [isEditing, setIsEditing] = useState(false);
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [confirmingAction, setConfirmingAction] = useState<
+    "delete" | "empty" | null
+  >(null);
   const [name, setName] = useState(table.name);
   const [capacity, setCapacity] = useState(String(table.capacity));
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +78,7 @@ export default function SeatingTableCard({
     setName(table.name);
     setCapacity(String(table.capacity));
     setError(null);
-    setIsConfirmingDelete(false);
+    setConfirmingAction(null);
     setIsEditing(true);
   }
 
@@ -171,23 +176,31 @@ export default function SeatingTableCard({
             </button>
           </div>
         </form>
-      ) : isConfirmingDelete ? (
+      ) : confirmingAction ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            למחוק את {tableLabel}? אורחים שמשובצים אליו יעברו לרשימת האורחים
-            ללא שולחן.
+            {confirmingAction === "delete"
+              ? `למחוק את ${tableLabel}? אורחים שמשובצים אליו יעברו לרשימת האורחים ללא שולחן, ומספרי השולחנות שאחריו יתעדכנו.`
+              : `לרוקן את ${tableLabel}? כל ${guests.length} האורחים שמשובצים אליו יחזרו לרשימת האורחים ללא שולחן.`}
           </p>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => onDeleteTable(table.id)}
+              onClick={() => {
+                if (confirmingAction === "delete") {
+                  onDeleteTable(table.id);
+                } else {
+                  onEmptyTable(table.id);
+                }
+                setConfirmingAction(null);
+              }}
               className="flex-1 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 active:bg-rose-800"
             >
-              כן, מחיקה
+              {confirmingAction === "delete" ? "כן, מחיקה" : "כן, רוקן"}
             </button>
             <button
               type="button"
-              onClick={() => setIsConfirmingDelete(false)}
+              onClick={() => setConfirmingAction(null)}
               className="flex-1 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               ביטול
@@ -306,9 +319,27 @@ export default function SeatingTableCard({
                   <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
                 </svg>
               </button>
+              {guests.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingAction("empty")}
+                  aria-label={`ריקון ${tableLabel}`}
+                  title="רוקן שולחן"
+                  className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M11 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM2.046 15.253c-.058.468.172.92.57 1.175A9.953 9.953 0 0 0 8 18c1.982 0 3.83-.578 5.384-1.573.398-.254.628-.707.57-1.175a6.001 6.001 0 0 0-11.908 0ZM12.75 7.75a.75.75 0 0 0 0 1.5h5.5a.75.75 0 0 0 0-1.5h-5.5Z" />
+                  </svg>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setIsConfirmingDelete(true)}
+                onClick={() => setConfirmingAction("delete")}
                 aria-label={`מחיקת ${tableLabel}`}
                 className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
               >
@@ -355,6 +386,10 @@ export default function SeatingTableCard({
       )}
 
       <div className="flex min-h-10 flex-col gap-1.5">
+        <SeatingPickTarget
+          targetId={table.id}
+          guestIds={guests.map((guest) => guest.id)}
+        />
         {guests.length === 0 ? (
           <p className="rounded-xl border border-dashed border-zinc-300 px-3 py-3 text-center text-sm text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
             גררו אורחים לכאן

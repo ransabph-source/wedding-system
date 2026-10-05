@@ -2,6 +2,7 @@
 
 import { useDroppable } from "@dnd-kit/core";
 import GuestChip from "@/components/GuestChip";
+import SeatingPickTarget from "@/components/SeatingPickTarget";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { formatTableLabel } from "@/lib/tableDisplay";
 import type { Guest } from "@/types/guest";
@@ -105,6 +106,10 @@ export default function SeatingZoneCard({
       </div>
 
       <div className="flex min-h-16 flex-col gap-2">
+        <SeatingPickTarget
+          targetId={zone.id}
+          guestIds={guests.map((guest) => guest.id)}
+        />
         {guests.length === 0 ? (
           <p className="rounded-xl border border-dashed border-violet-300/70 px-3 py-6 text-center text-sm text-zinc-400 dark:border-violet-700/50 dark:text-zinc-500">
             גררו אורחים לאזור זה

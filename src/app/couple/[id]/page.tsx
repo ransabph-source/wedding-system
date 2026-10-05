@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import BudgetManagerView from "@/components/BudgetManagerView";
+import GiftTrackerView from "@/components/GiftTrackerView";
 import GroupManager from "@/components/GroupManager";
 import DigitalInvitationView from "@/components/DigitalInvitationView";
 import DuplicateGuestsModal from "@/components/DuplicateGuestsModal";
@@ -29,6 +30,8 @@ import {
 } from "@/lib/eventPhaseRules";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { getConfirmedCount } from "@/lib/guestRsvp";
+import { renumberTablesAfterDelete } from "@/lib/tableDisplay";
+import { useFloorPlan } from "@/lib/useFloorPlan";
 import type { BudgetItem } from "@/types/budget";
 import type { Guest, RsvpStatus } from "@/types/guest";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
@@ -49,7 +52,24 @@ const SeatingView = dynamic(() => import("@/components/SeatingView"), {
 
 const DEFAULT_GUEST_GROUPS = ["משפחה", "חברים", "עבודה"];
 
-type DashboardTab = "guests" | "seating" | "rsvp" | "budget" | "invitation";
+type DashboardTab =
+  | "guests"
+  | "seating"
+  | "rsvp"
+  | "budget"
+  | "gifts"
+  | "invitation";
+
+// Chronological order of managing an event. The page is RTL, so the first tab
+// sits on the right and the post-event gift tracker ends up leftmost.
+const DASHBOARD_TABS: { id: DashboardTab; label: string }[] = [
+  { id: "guests", label: "רשימת מוזמנים" },
+  { id: "seating", label: "סידורי הושבה" },
+  { id: "rsvp", label: "ניהול אישורי הגעה" },
+  { id: "budget", label: "ניהול תקציב" },
+  { id: "invitation", label: "הזמנה דיגיטלית" },
+  { id: "gifts", label: "ניהול מתנות" },
+];
 
 // When merging duplicates, the copy furthest along in the RSVP flow wins.
 const RSVP_MERGE_PRIORITY: Record<RsvpStatus, number> = {
@@ -89,7 +109,7 @@ function mergeGuests(group: Guest[]): Guest {
 }
 
 function tabButtonClasses(active: boolean) {
-  return `min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition sm:min-h-0 ${
+  return `min-h-11 shrink-0 snap-start whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition sm:min-h-0 ${
     active
       ? "bg-indigo-600 text-white shadow"
       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
@@ -98,7 +118,9 @@ function tabButtonClasses(active: boolean) {
 
 export default function CouplePortalPage() {
   const { id } = useParams<{ id: string }>();
-  const dataStatus = useEventData(id);
+  // Polls so changes made on other devices (e.g. walk-ins added by the
+  // hostess on the live screen) show up here.
+  const dataStatus = useEventData(id, { refreshIntervalMs: 15000 });
   const {
     userRole,
     getEvent,
@@ -137,7 +159,7 @@ export default function CouplePortalPage() {
 
   const [activeTab, setActiveTab] = useState<DashboardTab>("guests");
   const [guestGroups, setGuestGroups] = useState<string[]>(DEFAULT_GUEST_GROUPS);
-  const [floorPlanUrl, setFloorPlanUrl] = useState<string | null>(null);
+  const floorPlan = useFloorPlan(id);
   const [searchQuery, setSearchQuery] = useState("");
   const [budgetItems, setBudgetItems] =
     useState<BudgetItem[]>(DEFAULT_BUDGET_ITEMS);
@@ -163,7 +185,11 @@ export default function CouplePortalPage() {
   const seatedGuestsCount = guests
     .filter((guest) => guest.seatingAssignment !== null)
     .reduce((sum, guest) => sum + guest.partySize, 0);
-  const unseatedGuestsCount = totalGuestsCount - seatedGuestsCount;
+  // Only confirmed attendees still need a seat; pending or declined guests
+  // aren't waiting on one.
+  const unseatedGuestsCount = guests
+    .filter((guest) => guest.seatingAssignment === null)
+    .reduce((sum, guest) => sum + getConfirmedCount(guest), 0);
   const confirmedGuestsCount = guests.reduce(
     (sum, guest) => sum + getConfirmedCount(guest),
     0,
@@ -364,7 +390,16 @@ export default function CouplePortalPage() {
   }
 
   function handleDeleteTable(tableId: string) {
-    setTables((prev) => prev.filter((table) => table.id !== tableId));
+    setTables((prev) => {
+      const deleted = prev.find((table) => table.id === tableId);
+      const remaining = prev.filter((table) => table.id !== tableId);
+      return deleted ? renumberTablesAfterDelete(remaining, deleted) : remaining;
+    });
+    handleEmptyTable(tableId);
+  }
+
+  // Sends everyone seated at a table back to the unseated list.
+  function handleEmptyTable(tableId: string) {
     setGuests((prev) =>
       prev.map((guest) =>
         guest.seatingAssignment?.kind === "table" &&
@@ -491,42 +526,26 @@ export default function CouplePortalPage() {
               </div>
             )}
 
-            <nav className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-black/5 [scrollbar-width:none] sm:w-fit dark:bg-zinc-900">
-              <button
-                type="button"
-                onClick={() => setActiveTab("guests")}
-                className={tabButtonClasses(activeTab === "guests")}
-              >
-                רשימת מוזמנים
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("seating")}
-                className={tabButtonClasses(activeTab === "seating")}
-              >
-                סידורי הושבה
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("rsvp")}
-                className={tabButtonClasses(activeTab === "rsvp")}
-              >
-                ניהול אישורי הגעה
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("budget")}
-                className={tabButtonClasses(activeTab === "budget")}
-              >
-                ניהול תקציב
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("invitation")}
-                className={tabButtonClasses(activeTab === "invitation")}
-              >
-                הזמנה דיגיטלית
-              </button>
+            <nav className="flex max-w-full snap-x scroll-px-1 gap-1 overflow-x-auto overscroll-x-contain rounded-xl bg-white p-1 shadow-sm ring-1 ring-black/5 [scrollbar-width:none] sm:w-fit dark:bg-zinc-900">
+              {DASHBOARD_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={(e) => {
+                    setActiveTab(tab.id);
+                    // On phones the tab row scrolls; keep the tapped tab fully visible.
+                    e.currentTarget.scrollIntoView({
+                      behavior: "smooth",
+                      block: "nearest",
+                      inline: "nearest",
+                    });
+                  }}
+                  aria-current={activeTab === tab.id ? "page" : undefined}
+                  className={tabButtonClasses(activeTab === tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </nav>
           </div>
 
@@ -597,6 +616,12 @@ export default function CouplePortalPage() {
                       ? (guestId) => handleSetRsvpStatus(guestId, "confirmed")
                       : undefined
                   }
+                  onResetRsvp={
+                    canEdit("rsvp")
+                      ? (guestId) =>
+                          handleSetRsvpStatus(guestId, "pending_whatsapp")
+                      : undefined
+                  }
                   onBulkConfirmGuests={
                     canEdit("rsvp") ? handleBulkConfirmGuests : undefined
                   }
@@ -626,6 +651,7 @@ export default function CouplePortalPage() {
               onAddTables={handleAddTables}
               onEditTable={handleEditTable}
               onDeleteTable={handleDeleteTable}
+              onEmptyTable={handleEmptyTable}
               onToggleReserved={handleToggleReserved}
               onCreateZone={handleCreateZone}
               onDeleteZone={handleDeleteZone}
@@ -634,9 +660,11 @@ export default function CouplePortalPage() {
               onUnseatGuest={handleUnseatGuest}
               onBulkSeatGuests={handleBulkSeatGuests}
               onSwapTables={handleSwapTables}
-              floorPlanUrl={floorPlanUrl}
-              onUploadFloorPlan={setFloorPlanUrl}
-              onRemoveFloorPlan={() => setFloorPlanUrl(null)}
+              floorPlanUrl={floorPlan.url}
+              isSavingFloorPlan={floorPlan.isSaving}
+              floorPlanError={floorPlan.error}
+              onUploadFloorPlan={floorPlan.upload}
+              onRemoveFloorPlan={floorPlan.remove}
               searchQuery={searchQuery}
             />
             )
@@ -654,6 +682,8 @@ export default function CouplePortalPage() {
             </div>
           ) : activeTab === "invitation" ? (
             <DigitalInvitationView eventId={id} event={event} />
+          ) : activeTab === "gifts" ? (
+            <GiftTrackerView eventId={id} coupleNames={event?.coupleNames} />
           ) : (
             <div>
               {!canEdit("budget") && (

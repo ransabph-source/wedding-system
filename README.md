@@ -30,7 +30,10 @@ One-time setup:
    owners), then `supabase/migrations/20261002000000_leads.sql` (the sales
    leads CRM), then `supabase/migrations/20261003000000_leads_convert.sql`
    (lead-to-event conversion), then `supabase/migrations/20261004000000_role_claim.sql`
-   (puts the user's role in their session token), then `supabase/seed.sql`
+   (puts the user's role in their session token), then
+   `supabase/migrations/20261006000000_floor_plans.sql` (private storage bucket
+   for hall floor plans), then `supabase/migrations/20261007000000_gifts.sql`
+   (the couple's gift ledger), then `supabase/seed.sql`
    (optional demo data).
    Then enable the role hook: **Authentication → Hooks → Customize Access
    Token (JWT) Claims** → Postgres function `public.custom_access_token_hook`.

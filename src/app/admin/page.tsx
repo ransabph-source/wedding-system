@@ -37,7 +37,7 @@ function tabButtonClasses(active: boolean) {
 }
 
 export default function AdminCrmPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("leads");
+  const [activeTab, setActiveTab] = useState<AdminTab>("closedEvents");
   const [checkInQrEventId, setCheckInQrEventId] = useState<string | null>(
     null,
   );
@@ -65,17 +65,17 @@ export default function AdminCrmPage() {
         <nav className="mb-4 flex w-full gap-1 rounded-xl sm:inline-flex sm:w-auto bg-white p-1 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900">
           <button
             type="button"
-            onClick={() => setActiveTab("leads")}
-            className={tabButtonClasses(activeTab === "leads")}
-          >
-            ניהול לידים/מכירות
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab("closedEvents")}
             className={tabButtonClasses(activeTab === "closedEvents")}
           >
             אירועים סגורים
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("leads")}
+            className={tabButtonClasses(activeTab === "leads")}
+          >
+            ניהול לידים/מכירות
           </button>
         </nav>
 

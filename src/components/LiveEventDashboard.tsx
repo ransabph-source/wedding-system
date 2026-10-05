@@ -18,6 +18,7 @@ interface LiveGuestCardsProps {
   tables: SeatingTable[];
   searchQuery: string;
   onToggleArrived: (guestId: string) => void;
+  onChangeTable: (guestId: string) => void;
 }
 
 interface SummaryCard {
@@ -56,6 +57,12 @@ const ClockIcon = (
 const ChairIcon = (
   <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
     <path d="M5 2.75A.75.75 0 0 1 5.75 2h8.5a.75.75 0 0 1 .75.75V9H4.75V2.75ZM4 10.5h12a1 1 0 0 1 1 1V13a1 1 0 0 1-1 1h-.5v3.25a.75.75 0 0 1-1.5 0V14h-8v3.25a.75.75 0 0 1-1.5 0V14H4a1 1 0 0 1-1-1v-1.5a1 1 0 0 1 1-1Z" />
+  </svg>
+);
+
+const PencilIcon = (
+  <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4 opacity-80">
+    <path d="m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
   </svg>
 );
 
@@ -154,6 +161,7 @@ export function LiveGuestCards({
   tables,
   searchQuery,
   onToggleArrived,
+  onChangeTable,
 }: LiveGuestCardsProps) {
   const visibleGuests = useMemo(() => {
     return [...guests]
@@ -205,15 +213,20 @@ export function LiveGuestCards({
                 </span>
               </div>
 
-              <span
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-extrabold whitespace-nowrap ${
+              <button
+                type="button"
+                onClick={() => onChangeTable(guest.id)}
+                aria-label={`שינוי שיבוץ של ${guest.name} (${tableLabel})`}
+                title="שינוי שיבוץ"
+                className={`flex min-h-12 shrink-0 touch-manipulation items-center gap-1.5 rounded-xl px-3 text-sm font-extrabold whitespace-nowrap transition active:scale-[0.97] ${
                   assigned
-                    ? "bg-indigo-600 text-white"
-                    : "bg-zinc-200 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-zinc-200 text-zinc-600 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
                 }`}
               >
                 {tableLabel}
-              </span>
+                {PencilIcon}
+              </button>
             </div>
 
             <button

@@ -21,6 +21,7 @@ import SeatingTableCard from "@/components/SeatingTableCard";
 import SeatingZoneCard from "@/components/SeatingZoneCard";
 import UnseatedGuestsPanel from "@/components/UnseatedGuestsPanel";
 import { guestMatchesQuery } from "@/lib/guestSearch";
+import { SeatingPickProvider, type SeatingPick } from "@/lib/seatingPick";
 import { formatTableLabel } from "@/lib/tableDisplay";
 import type { Guest } from "@/types/guest";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
@@ -32,6 +33,7 @@ interface SeatingViewProps {
   onAddTables: (tables: SeatingTable[]) => void;
   onEditTable: (tableId: string, updates: { name: string; capacity: number }) => void;
   onDeleteTable: (tableId: string) => void;
+  onEmptyTable: (tableId: string) => void;
   onToggleReserved: (tableId: string) => void;
   onCreateZone: (zone: SeatingZone) => void;
   onDeleteZone: (zoneId: string) => void;
@@ -41,7 +43,9 @@ interface SeatingViewProps {
   onBulkSeatGuests: (assignments: { guestId: string; tableId: string }[]) => void;
   onSwapTables: (tableAId: string, tableBId: string) => void;
   floorPlanUrl: string | null;
-  onUploadFloorPlan: (dataUrl: string) => void;
+  isSavingFloorPlan?: boolean;
+  floorPlanError?: string | null;
+  onUploadFloorPlan: (file: File) => void;
   onRemoveFloorPlan: () => void;
   searchQuery: string;
 }
@@ -53,6 +57,7 @@ export default function SeatingView({
   onAddTables,
   onEditTable,
   onDeleteTable,
+  onEmptyTable,
   onToggleReserved,
   onCreateZone,
   onDeleteZone,
@@ -62,6 +67,8 @@ export default function SeatingView({
   onBulkSeatGuests,
   onSwapTables,
   floorPlanUrl,
+  isSavingFloorPlan,
+  floorPlanError,
   onUploadFloorPlan,
   onRemoveFloorPlan,
   searchQuery,
@@ -69,6 +76,7 @@ export default function SeatingView({
   const [activeGuest, setActiveGuest] = useState<Guest | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [tableToSwap, setTableToSwap] = useState<string | null>(null);
+  const [pickedGuestId, setPickedGuestId] = useState<string | null>(null);
   const [swapToast, setSwapToast] = useState<{
     id: number;
     message: string;
@@ -105,14 +113,22 @@ export default function SeatingView({
 
   const isChoosingSwapTarget = swapSourceTable !== null;
 
+  // Drops the pick on its own if the guest is deleted meanwhile.
+  const pickedGuest =
+    guests.find((guest) => guest.id === pickedGuestId) ?? null;
+
+  const isPickingOrSwapping = isChoosingSwapTarget || pickedGuest !== null;
+
   useEffect(() => {
-    if (!isChoosingSwapTarget) return;
+    if (!isPickingOrSwapping) return;
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") setTableToSwap(null);
+      if (e.key !== "Escape") return;
+      setTableToSwap(null);
+      setPickedGuestId(null);
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isChoosingSwapTarget]);
+  }, [isPickingOrSwapping]);
 
   useEffect(() => {
     if (!swapToast) return;
@@ -121,6 +137,7 @@ export default function SeatingView({
   }, [swapToast]);
 
   function handleSwapClick(tableId: string) {
+    setPickedGuestId(null);
     if (!swapSourceTable) {
       setTableToSwap(tableId);
       return;
@@ -143,34 +160,49 @@ export default function SeatingView({
     }));
   }
 
+  // Shared by drag-and-drop and tap-to-move. `targetId` is a droppable id.
+  function moveGuest(guestId: string, targetId: string) {
+    if (targetId === "unseated") {
+      onUnseatGuest(guestId);
+      return;
+    }
+
+    const zone = zones.find((z) => z.id === targetId);
+    if (zone) {
+      onSeatGuestToZone(guestId, zone.id);
+      return;
+    }
+
+    const table = tables.find((t) => t.id === targetId);
+    if (table) {
+      onSeatGuestToTable(guestId, table.id);
+    }
+  }
+
+  const seatingPick: SeatingPick = {
+    pickedGuestId: pickedGuest?.id ?? null,
+    togglePick: (guestId) => {
+      setTableToSwap(null);
+      setPickedGuestId((prev) => (prev === guestId ? null : guestId));
+    },
+    placePicked: (targetId) => {
+      if (!pickedGuest) return;
+      moveGuest(pickedGuest.id, targetId);
+      setPickedGuestId(null);
+    },
+  };
+
   function handleDragStart(event: DragStartEvent) {
+    setPickedGuestId(null);
     const guest = guests.find((g) => g.id === event.active.id);
     setActiveGuest(guest ?? null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveGuest(null);
-
     const overId = event.over?.id;
     if (!overId) return;
-
-    const guestId = String(event.active.id);
-
-    if (overId === "unseated") {
-      onUnseatGuest(guestId);
-      return;
-    }
-
-    const zone = zones.find((z) => z.id === overId);
-    if (zone) {
-      onSeatGuestToZone(guestId, zone.id);
-      return;
-    }
-
-    const table = tables.find((t) => t.id === overId);
-    if (table) {
-      onSeatGuestToTable(guestId, table.id);
-    }
+    moveGuest(String(event.active.id), String(overId));
   }
 
   return (
@@ -206,12 +238,15 @@ export default function SeatingView({
           />
           <FloorPlanUploader
             floorPlanUrl={floorPlanUrl}
+            isSaving={isSavingFloorPlan}
+            error={floorPlanError}
             onUpload={onUploadFloorPlan}
             onRemove={onRemoveFloorPlan}
           />
         </div>
       </div>
 
+      <SeatingPickProvider value={seatingPick}>
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -307,6 +342,7 @@ export default function SeatingView({
                       onRemoveGuest={onUnseatGuest}
                       onEditTable={onEditTable}
                       onDeleteTable={onDeleteTable}
+                      onEmptyTable={onEmptyTable}
                       onToggleReserved={onToggleReserved}
                       searchQuery={searchQuery}
                       swapMode={
@@ -330,6 +366,28 @@ export default function SeatingView({
           {activeGuest ? <GuestChip guest={activeGuest} /> : null}
         </DragOverlay>
       </DndContext>
+      </SeatingPickProvider>
+
+      {pickedGuest && (
+        <div
+          role="status"
+          className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl"
+        >
+          <span className="min-w-0">
+            <span className="block truncate">נבחר: {pickedGuest.name}</span>
+            <span className="block text-xs font-normal text-indigo-100">
+              הקישו &quot;העבר לכאן&quot; בשולחן הרצוי
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setPickedGuestId(null)}
+            className="min-h-11 shrink-0 rounded-xl bg-white/15 px-4 font-semibold transition hover:bg-white/25"
+          >
+            ביטול
+          </button>
+        </div>
+      )}
 
       <SeatingCopilotChat
         guests={guests}

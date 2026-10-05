@@ -1,6 +1,7 @@
 // Converts between the app's camelCase models and the snake_case database
 // rows. Absent optional fields are stored as null and read back as undefined.
 import type { EventRecord } from "@/types/event";
+import type { Gift } from "@/types/gift";
 import type { Guest } from "@/types/guest";
 import type { Lead, LeadInput } from "@/types/lead";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
@@ -182,4 +183,31 @@ export function leadToRow(lead: Partial<LeadInput>): Partial<LeadRow> {
   if (lead.followUpDate !== undefined) row.follow_up_date = lead.followUpDate;
   if (lead.notes !== undefined) row.notes = lead.notes;
   return row;
+}
+
+export interface GiftRow {
+  event_id: string;
+  id: string;
+  guest_name: string;
+  attendees: number | null;
+  amount: number | null;
+}
+
+export function giftFromRow(row: GiftRow): Gift {
+  return {
+    id: row.id,
+    guestName: row.guest_name,
+    attendees: row.attendees,
+    amount: row.amount,
+  };
+}
+
+export function giftToRow(eventId: string, gift: Gift): GiftRow {
+  return {
+    event_id: eventId,
+    id: gift.id,
+    guest_name: gift.guestName,
+    attendees: gift.attendees,
+    amount: gift.amount,
+  };
 }
