@@ -21,6 +21,13 @@ export function toWhatsAppNumber(phone: string): string {
   return digits.startsWith("0") ? `972${digits.slice(1)}` : digits;
 }
 
+export function isWhatsAppConfigured(): boolean {
+  return Boolean(
+    process.env.WHATSAPP_ACCESS_TOKEN?.trim() &&
+      process.env.WHATSAPP_PHONE_ID?.trim(),
+  );
+}
+
 async function postMessage(
   to: string,
   message: Record<string, unknown>,

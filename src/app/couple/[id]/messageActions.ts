@@ -7,13 +7,14 @@ import { guestFromRow, type GuestRow } from "@/lib/db/mappers";
 import { normalizePhone } from "@/lib/guestRsvp";
 import { createRateLimiter } from "@/lib/rateLimit";
 import { getSupabase } from "@/lib/supabase/server";
+import { isWhatsAppConfigured, sendWhatsAppTemplate } from "@/lib/whatsapp";
 import type { EventRecord } from "@/types/event";
 
-// Sends RSVP invitations through an external messaging service (e.g. a
-// WhatsApp automation), which receives the payload at WEBHOOK_URL and does
-// the actual sending. Only the event's couple and admins may trigger it, and
-// recipients are always looked up from the database, never taken from the
-// client, so nobody can send links for another event's guests.
+// Sends RSVP invitations as a WhatsApp message template (WHATSAPP_RSVP_TEMPLATE,
+// approved in WhatsApp Manager) whose body takes {{1}} guest name, {{2}} couple
+// names, {{3}} the guest's RSVP link. Only the event's couple and admins may
+// trigger it, and recipients are always looked up from the database, never
+// taken from the client, so nobody can send links for another event's guests.
 
 export type SendMessagesResult =
   | {
@@ -21,6 +22,8 @@ export type SendMessagesResult =
       sent: number;
       // Selected guests that weren't sent: no phone number, or not saved yet.
       skipped: string[];
+      // Guests WhatsApp didn't accept the message for.
+      failed: string[];
     }
   | {
       ok: false;
@@ -29,14 +32,14 @@ export type SendMessagesResult =
         | "not_configured"
         | "invalid"
         | "rate_limited"
-        | "webhook_failed";
+        | "send_failed";
     };
 
-// One payload per batch; the webhook can split it further if it needs to.
 const MAX_BATCH_SIZE = 2000;
 // PostgREST puts filters in the URL, so large ID lists are split.
 const ID_CHUNK_SIZE = 100;
-const WEBHOOK_TIMEOUT_MS = 15_000;
+// WhatsApp takes one recipient per request; this many run at once.
+const SEND_CONCURRENCY = 10;
 // Shorter inputs can't be a real phone number.
 const MIN_PHONE_DIGITS = 9;
 
@@ -47,19 +50,25 @@ const testSends = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
 // "not found" page instead of a real guest's RSVP.
 const TEST_RSVP_TOKEN = "00000000-0000-0000-0000-000000000000";
 
-interface WebhookRecipient {
-  guestId: string | null;
+interface Recipient {
+  guestId: string;
   name: string;
   phone: string;
   rsvpUrl: string;
 }
 
-interface WebhookPayload {
-  type: "rsvp_invitation";
-  // True for test sends; the recipient isn't a guest and the link is a dummy.
-  test: boolean;
-  event: { id: string; coupleNames: string; eventDate: string; venue: string };
-  recipients: WebhookRecipient[];
+interface RsvpTemplate {
+  name: string;
+  language: string;
+}
+
+function rsvpTemplate(): RsvpTemplate | null {
+  const name = process.env.WHATSAPP_RSVP_TEMPLATE?.trim();
+  if (!name || !isWhatsAppConfigured()) return null;
+  return {
+    name,
+    language: process.env.WHATSAPP_RSVP_TEMPLATE_LANGUAGE?.trim() || "he",
+  };
 }
 
 async function authorize(eventId: string): Promise<string | null> {
@@ -81,35 +90,16 @@ async function appBaseUrl(): Promise<string> {
   return `${proto}://${host}`;
 }
 
-function eventSummary(event: EventRecord): WebhookPayload["event"] {
-  return {
-    id: event.id,
-    coupleNames: event.coupleNames,
-    eventDate: event.eventDate,
-    venue: event.venue,
-  };
-}
-
-async function postToWebhook(
-  url: string,
-  payload: WebhookPayload,
-): Promise<boolean> {
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      console.error(`RSVP webhook responded ${response.status}`);
-    }
-    return response.ok;
-  } catch (error) {
-    console.error("RSVP webhook request failed", error);
-    return false;
-  }
+function sendRsvpTemplate(
+  template: RsvpTemplate,
+  event: EventRecord,
+  recipient: { name: string; phone: string; rsvpUrl: string },
+) {
+  return sendWhatsAppTemplate(recipient.phone, template.name, template.language, [
+    recipient.name,
+    event.coupleNames,
+    recipient.rsvpUrl,
+  ]);
 }
 
 // Records when the guests were last messaged. The messages are already out
@@ -132,8 +122,8 @@ export async function sendRsvpMessages(
 ): Promise<SendMessagesResult> {
   if (typeof eventId !== "string") return { ok: false, reason: "invalid" };
   if (!(await authorize(eventId))) return { ok: false, reason: "unauthorized" };
-  const webhookUrl = process.env.WEBHOOK_URL?.trim();
-  if (!webhookUrl) return { ok: false, reason: "not_configured" };
+  const template = rsvpTemplate();
+  if (!template) return { ok: false, reason: "not_configured" };
   if (
     !Array.isArray(guestIds) ||
     guestIds.length === 0 ||
@@ -160,7 +150,7 @@ export async function sendRsvpMessages(
   }
 
   const baseUrl = await appBaseUrl();
-  const recipients: WebhookRecipient[] = [];
+  const recipients: Recipient[] = [];
   const skipped: string[] = [];
   for (const guest of rows.map(guestFromRow)) {
     const phone = normalizePhone(guest.phone ?? "");
@@ -181,20 +171,31 @@ export async function sendRsvpMessages(
     skipped.push(...Array<string>(missing).fill("אורח שטרם נשמר"));
   }
 
-  if (recipients.length === 0) return { ok: true, sent: 0, skipped };
+  if (recipients.length === 0) {
+    return { ok: true, sent: 0, skipped, failed: [] };
+  }
 
-  const delivered = await postToWebhook(webhookUrl, {
-    type: "rsvp_invitation",
-    test: false,
-    event: eventSummary(event),
-    recipients,
-  });
-  if (!delivered) return { ok: false, reason: "webhook_failed" };
-  await stampLastContacted(
-    eventId,
-    recipients.map((recipient) => recipient.guestId!),
-  );
-  return { ok: true, sent: recipients.length, skipped };
+  const sentIds: string[] = [];
+  const failed: string[] = [];
+  for (let i = 0; i < recipients.length; i += SEND_CONCURRENCY) {
+    const batch = recipients.slice(i, i + SEND_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((recipient) => sendRsvpTemplate(template, event, recipient)),
+    );
+    results.forEach((result, j) => {
+      if (result.ok) sentIds.push(batch[j].guestId);
+      else if (result.reason === "invalid_number") skipped.push(batch[j].name);
+      else failed.push(batch[j].name);
+    });
+  }
+
+  // Replies are matched to guests by last_contacted_at, so only guests who
+  // were actually sent a message are stamped.
+  if (sentIds.length > 0) await stampLastContacted(eventId, sentIds);
+  if (sentIds.length === 0 && failed.length > 0) {
+    return { ok: false, reason: "send_failed" };
+  }
+  return { ok: true, sent: sentIds.length, skipped, failed };
 }
 
 export async function sendTestMessage(
@@ -204,8 +205,8 @@ export async function sendTestMessage(
   if (typeof eventId !== "string") return { ok: false, reason: "invalid" };
   const userId = await authorize(eventId);
   if (!userId) return { ok: false, reason: "unauthorized" };
-  const webhookUrl = process.env.WEBHOOK_URL?.trim();
-  if (!webhookUrl) return { ok: false, reason: "not_configured" };
+  const template = rsvpTemplate();
+  if (!template) return { ok: false, reason: "not_configured" };
 
   const normalized = typeof phone === "string" ? normalizePhone(phone) : "";
   if (normalized.length < MIN_PHONE_DIGITS || normalized.length > 15) {
@@ -217,19 +218,22 @@ export async function sendTestMessage(
   const event = await getEvent(eventId);
   if (!event) return { ok: false, reason: "invalid" };
 
-  const delivered = await postToWebhook(webhookUrl, {
-    type: "rsvp_invitation",
-    test: true,
-    event: eventSummary(event),
-    recipients: [
-      {
-        guestId: null,
-        name: "הודעת נסיון",
-        phone: normalized,
-        rsvpUrl: `${await appBaseUrl()}/rsvp/${TEST_RSVP_TOKEN}`,
-      },
-    ],
+  // Sent with the real template so the test shows exactly what guests get.
+  const result = await sendRsvpTemplate(template, event, {
+    name: "הודעת נסיון",
+    phone: normalized,
+    rsvpUrl: `${await appBaseUrl()}/rsvp/${TEST_RSVP_TOKEN}`,
   });
-  if (!delivered) return { ok: false, reason: "webhook_failed" };
-  return { ok: true, sent: 1, skipped: [] };
+  if (!result.ok) {
+    return {
+      ok: false,
+      reason:
+        result.reason === "invalid_number"
+          ? "invalid"
+          : result.reason === "not_configured"
+            ? "not_configured"
+            : "send_failed",
+    };
+  }
+  return { ok: true, sent: 1, skipped: [], failed: [] };
 }

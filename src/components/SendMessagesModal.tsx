@@ -26,10 +26,11 @@ const ERROR_MESSAGES: Record<
   string
 > = {
   unauthorized: "אין לכם הרשאה לשלוח הודעות לאירוע זה.",
-  not_configured: "שליחת ההודעות עדיין לא הוגדרה במערכת. פנו למנהל המערכת.",
+  not_configured:
+    "חיבור WhatsApp לא הוגדר בשרת (אסימון גישה, מזהה מספר או תבנית הודעה). פנו למנהל המערכת.",
   invalid: "הפרטים שהוזנו אינם תקינים.",
   rate_limited: "נשלחו יותר מדי הודעות נסיון. נסו שוב בעוד מספר דקות.",
-  webhook_failed: "שירות ההודעות לא אישר את הבקשה. נסו שוב מאוחר יותר.",
+  send_failed: "WhatsApp לא אישר את שליחת ההודעות. נסו שוב מאוחר יותר.",
 };
 
 // Guests who haven't answered yet, whether or not they were already contacted.
@@ -131,12 +132,16 @@ export default function SendMessagesModal({
         result.skipped.length > 0
           ? ` ${result.skipped.length} אורחים דולגו (ללא מספר טלפון תקין או שטרם נשמרו).`
           : "";
+      const failedText =
+        result.failed.length > 0
+          ? ` השליחה נכשלה עבור: ${result.failed.join(", ")}.`
+          : "";
       setSendFeedback({
-        tone: result.sent > 0 ? "success" : "error",
+        tone: result.sent > 0 && result.failed.length === 0 ? "success" : "error",
         text:
           result.sent > 0
-            ? `ההודעות נשלחו לשירות ההודעות עבור ${result.sent} אורחים.${skippedText}`
-            : `לא נשלחו הודעות.${skippedText}`,
+            ? `הודעות WhatsApp נשלחו ל-${result.sent} אורחים.${skippedText}${failedText}`
+            : `לא נשלחו הודעות.${skippedText}${failedText}`,
       });
     } catch (error) {
       console.error(error);
@@ -154,7 +159,7 @@ export default function SendMessagesModal({
       const result = await sendTestMessage(eventId, testPhone);
       setTestFeedback(
         result.ok
-          ? { tone: "success", text: "הודעת הנסיון נשלחה לשירות ההודעות." }
+          ? { tone: "success", text: "הודעת הנסיון נשלחה ב-WhatsApp." }
           : {
               tone: "error",
               text:
@@ -213,7 +218,7 @@ export default function SendMessagesModal({
                 שלח הודעת נסיון
               </h3>
               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                מומלץ לבדוק את החיבור לשירות ההודעות לפני השליחה לאורחים.
+                מומלץ לבדוק את ההודעה ב-WhatsApp לפני השליחה לאורחים.
               </p>
             </div>
             <form onSubmit={handleTest} className="flex gap-2">
