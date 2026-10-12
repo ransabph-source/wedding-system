@@ -25,6 +25,8 @@ interface GuestTableProps {
   onResetRsvp?: (guestId: string) => void;
   onBulkConfirmGuests?: (guestIds: string[]) => void;
   onBulkDeleteGuests?: (guestIds: string[]) => void;
+  // Opens the send-messages dialog for the selected guests.
+  onSendMessages?: (guestIds: string[]) => void;
 }
 
 type EditableField = "name" | "phone" | "partySize";
@@ -51,6 +53,7 @@ export default function GuestTable({
   onResetRsvp,
   onBulkConfirmGuests,
   onBulkDeleteGuests,
+  onSendMessages,
 }: GuestTableProps) {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [draftValue, setDraftValue] = useState("");
@@ -60,7 +63,8 @@ export default function GuestTable({
 
   const canBulkConfirm = Boolean(onBulkConfirmGuests);
   const canBulkDelete = !readOnly && Boolean(onBulkDeleteGuests);
-  const isSelectable = canBulkConfirm || canBulkDelete;
+  const canSendMessages = Boolean(onSendMessages);
+  const isSelectable = canBulkConfirm || canBulkDelete || canSendMessages;
   const columnCount = isSelectable ? 6 : 5;
 
   // Bulk actions only ever touch guests currently on screen, so a selection
@@ -96,6 +100,11 @@ export default function GuestTable({
     if (!onBulkConfirmGuests) return;
     onBulkConfirmGuests(selectedGuests.map((guest) => guest.id));
     clearSelection();
+  }
+
+  // The selection stays, so it's still there if the dialog is closed unsent.
+  function handleSendMessagesClick() {
+    onSendMessages?.(selectedGuests.map((guest) => guest.id));
   }
 
   function handleBulkDeleteClick() {
@@ -462,6 +471,15 @@ export default function GuestTable({
             </button>
           </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
+            {canSendMessages && (
+              <button
+                type="button"
+                onClick={handleSendMessagesClick}
+                className="min-h-10 flex-1 rounded-lg bg-indigo-600 px-3 py-1.5 sm:min-h-0 sm:flex-none text-sm font-semibold text-white transition hover:bg-indigo-500 active:bg-indigo-700"
+              >
+                שליחת הודעות
+              </button>
+            )}
             {canBulkConfirm && (
               <button
                 type="button"

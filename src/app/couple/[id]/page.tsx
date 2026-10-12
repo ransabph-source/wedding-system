@@ -17,6 +17,7 @@ import ReadOnlySeatingMap from "@/components/ReadOnlySeatingMap";
 import RsvpManagementView from "@/components/RsvpManagementView";
 import RsvpSummaryWidget from "@/components/RsvpSummaryWidget";
 import SelfCheckInQrModal from "@/components/SelfCheckInQrModal";
+import SendMessagesModal from "@/components/SendMessagesModal";
 import SearchBar from "@/components/SearchBar";
 import StatsBar from "@/components/StatsBar";
 import { DEFAULT_BUDGET_ITEMS } from "@/lib/budgetCategories";
@@ -169,6 +170,11 @@ export default function CouplePortalPage() {
   >(() => new Set());
   const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false);
   const [isCheckInQrOpen, setIsCheckInQrOpen] = useState(false);
+  // Guest IDs picked in the table when the dialog was opened from there;
+  // null while the dialog is closed.
+  const [messageGuestIds, setMessageGuestIds] = useState<string[] | null>(
+    null,
+  );
 
   const duplicateGroups = findDuplicateGuests(guests).filter(
     (group) => !ignoredDuplicateKeys.has(duplicateGroupKey(group)),
@@ -603,6 +609,27 @@ export default function CouplePortalPage() {
                 />
               )}
 
+              {/* Sending links stays available when the list is locked, e.g.
+                  while the RSVP campaign runs. */}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMessageGuestIds([])}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:bg-indigo-800 sm:min-h-0"
+                >
+                  שליחת הודעות
+                </button>
+              </div>
+
+              {messageGuestIds && (
+                <SendMessagesModal
+                  eventId={id}
+                  guests={guests}
+                  selectedGuestIds={messageGuestIds}
+                  onClose={() => setMessageGuestIds(null)}
+                />
+              )}
+
               <div className="overflow-hidden rounded-xl md:min-h-[60vh]">
                 <GuestTable
                   guests={visibleGuests}
@@ -626,6 +653,7 @@ export default function CouplePortalPage() {
                     canEdit("rsvp") ? handleBulkConfirmGuests : undefined
                   }
                   onBulkDeleteGuests={handleBulkDeleteGuests}
+                  onSendMessages={setMessageGuestIds}
                 />
               </div>
 

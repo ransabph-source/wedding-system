@@ -64,6 +64,45 @@ const PhoneIcon = (
   </svg>
 );
 
+// Copies the guest's personal RSVP page link (see app/rsvp/[token]).
+function CopyRsvpLinkButton({ token }: { token: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/rsvp/${token}`,
+      );
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      // Clipboard access can be blocked (e.g. outside a secure context).
+      console.error(error);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="w-fit text-xs font-medium text-zinc-400 underline-offset-2 transition hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
+    >
+      {copied ? "הקישור הועתק ✓" : "העתקת קישור לאישור הגעה"}
+    </button>
+  );
+}
+
+const lastContactedFormat = new Intl.DateTimeFormat("he-IL", {
+  day: "numeric",
+  month: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatLastContacted(iso: string) {
+  return lastContactedFormat.format(new Date(iso));
+}
+
 function ContactBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
@@ -205,6 +244,19 @@ export default function RsvpManagementView({
                     </span>
 
                     {!readOnly && renderActions(guest)}
+
+                    {guest.lastContactedAt && (
+                      <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                        הודעה אחרונה נשלחה:{" "}
+                        {formatLastContacted(guest.lastContactedAt)}
+                      </p>
+                    )}
+
+                    {/* Sending links is still useful when the board is
+                        locked, e.g. while the agency runs the campaign. */}
+                    {guest.rsvpToken && (
+                      <CopyRsvpLinkButton token={guest.rsvpToken} />
+                    )}
                   </div>
                 ))
               )}

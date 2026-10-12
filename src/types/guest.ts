@@ -24,4 +24,10 @@ export interface Guest {
   arrivedCount?: number;
   rsvpStatus: RsvpStatus;
   contactCount: number;
+  // The secret in the guest's public RSVP link (/rsvp/<token>). Assigned by
+  // the database, so unset on guests that haven't been saved yet.
+  rsvpToken?: string;
+  // ISO timestamp of the last RSVP message sent through the messaging
+  // webhook; unset if none was sent.
+  lastContactedAt?: string;
 }

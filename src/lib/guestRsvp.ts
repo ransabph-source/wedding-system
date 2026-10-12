@@ -1,5 +1,9 @@
 import type { Guest } from "@/types/guest";
 
+// The most seats a guest can confirm from their RSVP link. Guests may confirm
+// more than their invited party size, up to this sanity limit.
+export const MAX_RSVP_COUNT = 10;
+
 export function getConfirmedCount(guest: Guest): number {
   if (guest.rsvpStatus !== "confirmed") return 0;
   return Math.min(guest.confirmedCount ?? guest.partySize, guest.partySize);

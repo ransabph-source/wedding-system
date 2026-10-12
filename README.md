@@ -33,7 +33,10 @@ One-time setup:
    (puts the user's role in their session token), then
    `supabase/migrations/20261006000000_floor_plans.sql` (private storage bucket
    for hall floor plans), then `supabase/migrations/20261007000000_gifts.sql`
-   (the couple's gift ledger), then `supabase/seed.sql`
+   (the couple's gift ledger), then `supabase/migrations/20261008000000_rsvp_tokens.sql`
+   (guests' personal RSVP links), then
+   `supabase/migrations/20261009000000_guest_last_contacted.sql` (when each
+   guest was last sent an RSVP message), then `supabase/seed.sql`
    (optional demo data).
    Then enable the role hook: **Authentication → Hooks → Customize Access
    Token (JWT) Claims** → Postgres function `public.custom_access_token_hook`.

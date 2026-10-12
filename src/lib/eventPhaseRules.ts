@@ -53,6 +53,12 @@ export function isSectionEditableForCouple(
   return EDITABLE_SECTIONS[phase].includes(section);
 }
 
+// Guests may answer their RSVP link until the event is locked before the
+// big day; after that, changes go through the agency.
+export function isGuestRsvpOpen(phase: EventPhase): boolean {
+  return PHASE_ORDER.indexOf(phase) < PHASE_ORDER.indexOf("LOCKED_PRE_EVENT");
+}
+
 export const PHASE_LOCK_MESSAGES: Record<EventPhase, string> = {
   SETUP: "",
   RSVP_CAMPAIGN:
