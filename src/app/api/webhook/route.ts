@@ -11,13 +11,23 @@ import {
 // WhatsApp (Meta) webhook verification handshake.
 // Meta calls GET ?hub.mode=subscribe&hub.verify_token=...&hub.challenge=...
 // and expects the challenge echoed back as plain text when the token matches.
+// The token is read from WHATSAPP_VERIFY_TOKEN, or the older
+// WEBHOOK_VERIFY_TOKEN name so existing deployments keep working.
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
+  const mode = params.get("hub.mode");
   const token = params.get("hub.verify_token");
   const challenge = params.get("hub.challenge");
-  const expected = process.env.WEBHOOK_VERIFY_TOKEN;
+  const expected = (
+    process.env.WHATSAPP_VERIFY_TOKEN || process.env.WEBHOOK_VERIFY_TOKEN
+  )?.trim();
 
-  if (!expected || token !== expected || challenge === null) {
+  if (
+    mode !== "subscribe" ||
+    !expected ||
+    token !== expected ||
+    challenge === null
+  ) {
     return new Response("Forbidden", { status: 403 });
   }
 
