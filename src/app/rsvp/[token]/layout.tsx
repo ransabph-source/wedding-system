@@ -1,5 +1,6 @@
 import type { Viewport } from "next";
 import { Frank_Ruhl_Libre } from "next/font/google";
+import Footer from "@/components/Footer";
 
 // A classic Hebrew serif for the invitation's headings.
 const invitationSerif = Frank_Ruhl_Libre({
@@ -16,5 +17,10 @@ export const viewport: Viewport = {
 };
 
 export default function RsvpLayout({ children }: LayoutProps<"/rsvp/[token]">) {
-  return <div className={invitationSerif.variable}>{children}</div>;
+  return (
+    <div className={invitationSerif.variable}>
+      {children}
+      <Footer />
+    </div>
+  );
 }

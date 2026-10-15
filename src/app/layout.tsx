@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import AccessibilityWidget from "@/components/AccessibilityWidget";
 import SyncErrorToast from "@/components/SyncErrorToast";
 import { getCurrentUser } from "@/lib/auth";
 import { EventEngineProvider } from "@/lib/eventEngine";
@@ -39,6 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <EventEngineProvider key={user?.id ?? "signed-out"} userRole={user?.role ?? null}>
           {children}
           <SyncErrorToast />
+          <AccessibilityWidget />
         </EventEngineProvider>
       </body>
     </html>

@@ -45,3 +45,23 @@ body {
     font-size: max(16px, 1em);
   }
 }
+
+/* Accessibility widget options (src/components/AccessibilityWidget.tsx),
+   toggled as classes on <html>. Unlayered so they win over utilities. */
+html.a11y-text {
+  font-size: 125%;
+}
+
+/* A filter on the root element doesn't break position: fixed. */
+html.a11y-contrast {
+  filter: contrast(1.6) saturate(1.2);
+}
+
+html.a11y-links a {
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px;
+  outline: 2px solid #facc15;
+  outline-offset: 2px;
+  font-weight: 700;
+}

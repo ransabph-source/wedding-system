@@ -1,4 +1,5 @@
 import type { Viewport } from "next";
+import Footer from "@/components/Footer";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -10,5 +11,10 @@ export const viewport: Viewport = {
 export default function SelfCheckInLayout({
   children,
 }: LayoutProps<"/self-checkin/[eventId]">) {
-  return children;
+  return (
+    <>
+      {children}
+      <Footer />
+    </>
+  );
 }

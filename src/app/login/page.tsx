@@ -5,6 +5,7 @@ import {
   loginNextPath,
   NO_HOME_MESSAGES,
 } from "@/lib/auth";
+import Footer from "@/components/Footer";
 import LoginForm from "./LoginForm";
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -25,13 +26,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-zinc-100 px-4 py-8 dark:bg-zinc-950">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-4 text-2xl font-bold sm:text-xl text-zinc-900 dark:text-zinc-50">
-          התחברות
-        </h1>
-        <LoginForm next={nextPath ?? ""} initialError={notice} />
+    <>
+      <div className="flex min-h-dvh items-center justify-center bg-zinc-100 px-4 py-8 dark:bg-zinc-950">
+        <div className="w-full max-w-sm">
+          <h1 className="mb-4 text-2xl font-bold sm:text-xl text-zinc-900 dark:text-zinc-50">
+            התחברות
+          </h1>
+          <LoginForm next={nextPath ?? ""} initialError={notice} />
+        </div>
       </div>
-    </div>
+      <Footer />
+    </>
   );
 }
