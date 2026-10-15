@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CookieBanner from "@/components/CookieBanner";
 
 const LEGAL_LINKS = [
   { href: "/terms", label: "תקנון ותנאי שימוש" },
@@ -8,7 +9,8 @@ const LEGAL_LINKS = [
 
 // Footer with the legal links, shown only on public pages: login, the guest
 // RSVP and self check-in pages, and the legal pages. Internal working screens
-// leave it out.
+// leave it out. It also brings the cookie banner, so that only shows on
+// public pages too.
 export default function Footer() {
   return (
     <footer className="border-t border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-600 print:hidden dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
@@ -32,6 +34,7 @@ export default function Footer() {
         </nav>
         <p className="text-zinc-500">© {new Date().getFullYear()} I R Sidurim</p>
       </div>
+      <CookieBanner />
     </footer>
   );
 }
