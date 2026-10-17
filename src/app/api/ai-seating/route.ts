@@ -28,6 +28,9 @@ import {
   type AiSeatingStatus,
 } from "@/types/aiSeating";
 
+// Seconds. Planning a large event can take minutes (see aiSeatingModel).
+export const maxDuration = 300;
+
 interface AiSeatingEventRow {
   ai_usage_count: number;
   is_seating_locked: boolean;
