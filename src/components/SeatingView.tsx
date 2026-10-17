@@ -41,7 +41,10 @@ interface SeatingViewProps {
   onSeatGuestToTable: (guestId: string, tableId: string) => void;
   onSeatGuestToZone: (guestId: string, zoneId: string) => void;
   onUnseatGuest: (guestId: string) => void;
-  onBulkSeatGuests: (assignments: { guestId: string; tableId: string }[]) => void;
+  // A null tableId unseats the guest.
+  onBulkSeatGuests: (
+    assignments: { guestId: string; tableId: string | null }[],
+  ) => void;
   onSwapTables: (tableAId: string, tableBId: string) => void;
   floorPlanUrl: string | null;
   isSavingFloorPlan?: boolean;

@@ -330,18 +330,21 @@ export default function CouplePortalPage() {
     );
   }
 
+  // A null tableId unseats the guest.
   function handleBulkSeatGuests(
-    assignments: { guestId: string; tableId: string }[],
+    assignments: { guestId: string; tableId: string | null }[],
   ) {
     const assignmentByGuestId = new Map(
       assignments.map((assignment) => [assignment.guestId, assignment.tableId]),
     );
     setGuests((prev) =>
       prev.map((guest) => {
+        if (!assignmentByGuestId.has(guest.id)) return guest;
         const tableId = assignmentByGuestId.get(guest.id);
-        return tableId
-          ? { ...guest, seatingAssignment: { kind: "table", id: tableId } }
-          : guest;
+        return {
+          ...guest,
+          seatingAssignment: tableId ? { kind: "table", id: tableId } : null,
+        };
       }),
     );
   }

@@ -113,10 +113,27 @@ export default function SeatingCopilotChat({
     const guestIds = new Set(guests.map((guest) => guest.id));
     const tableIds = new Set(tables.map((table) => table.id));
     const valid = assignments.filter(
-      (a) => guestIds.has(a.guestId) && tableIds.has(a.tableId),
+      (a) =>
+        guestIds.has(a.guestId) &&
+        (a.tableId === null || tableIds.has(a.tableId)),
     );
     if (valid.length > 0) onBulkSeatGuests(valid);
-    return valid.length;
+    const unseated = valid.filter((a) => a.tableId === null).length;
+    return { moved: valid.length - unseated, unseated };
+  }
+
+  function describeChanges({
+    moved,
+    unseated,
+  }: ReturnType<typeof applyAssignments>): string {
+    if (moved === 0 && unseated === 0) {
+      return "בדקתי, ולא נדרשו שינויים בהושבה לפי הבקשה.";
+    }
+    const parts = [
+      moved > 0 && `העברתי ${moved} אורחים לשולחנות חדשים`,
+      unseated > 0 && `החזרתי ${unseated} אורחים לרשימת הממתינים לשיבוץ`,
+    ].filter(Boolean);
+    return `סידרתי! ${parts.join(" ו")}. אפשר לגרור כל אחד מהם אם תרצו לשנות.`;
   }
 
   async function describeError(error: unknown): Promise<string> {
@@ -149,15 +166,10 @@ export default function SeatingCopilotChat({
         usageLimit: result.usageLimit,
         isLocked: result.isLocked,
       });
-      const moved = applyAssignments(result.assignments);
+      const changes = applyAssignments(result.assignments);
       setMessages((prev) => [
         ...prev,
-        newMessage(
-          "assistant",
-          moved > 0
-            ? `סידרתי! העברתי ${moved} אורחים לשולחנות חדשים. אפשר לגרור כל אחד מהם אם תרצו לשנות.`
-            : "בדקתי, ולא נדרשו שינויים בהושבה לפי הבקשה.",
-        ),
+        newMessage("assistant", describeChanges(changes)),
       ]);
     } catch (error) {
       console.error(error);

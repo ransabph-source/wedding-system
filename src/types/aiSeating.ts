@@ -14,7 +14,8 @@ export interface AiSeatingStatus {
 
 export interface AiSeatingAssignment {
   guestId: string;
-  tableId: string;
+  // Null returns the guest to the unseated list.
+  tableId: string | null;
 }
 
 export interface AiSeatingResult extends AiSeatingStatus {
