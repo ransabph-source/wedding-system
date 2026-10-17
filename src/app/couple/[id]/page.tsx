@@ -673,6 +673,7 @@ export default function CouplePortalPage() {
               </div>
             ) : (
             <SeatingView
+              eventId={id}
               guests={guests}
               tables={tables}
               zones={zones}

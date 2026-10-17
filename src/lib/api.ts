@@ -1,4 +1,5 @@
 // Browser-side wrappers around the /api routes.
+import type { AiSeatingResult, AiSeatingStatus } from "@/types/aiSeating";
 import type { ClientAccount } from "@/types/client";
 import type { EventPhase, EventRecord } from "@/types/event";
 import type { Gift } from "@/types/gift";
@@ -15,6 +16,17 @@ export interface EventCollections {
   zones: SeatingZone[];
 }
 
+// Thrown for non-2xx responses, so callers can react to the status code.
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -24,8 +36,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const body = (await response.json().catch(() => null)) as {
       error?: string;
     } | null;
-    throw new Error(
+    throw new ApiError(
       `${init?.method ?? "GET"} ${url} failed (${response.status}): ${body?.error ?? response.statusText}`,
+      response.status,
     );
   }
   return (response.status === 204 ? undefined : await response.json()) as T;
@@ -39,6 +52,26 @@ export function updateEventPhase(eventId: string, phase: EventPhase) {
   return request<EventRecord>(`/api/events/${encodeURIComponent(eventId)}`, {
     method: "PUT",
     body: JSON.stringify({ phase }),
+  });
+}
+
+export function fetchAiSeatingStatus(eventId: string) {
+  return request<AiSeatingStatus>(
+    `/api/ai-seating?eventId=${encodeURIComponent(eventId)}`,
+  );
+}
+
+export function setAiSeatingLocked(eventId: string, isLocked: boolean) {
+  return request<AiSeatingStatus>("/api/ai-seating", {
+    method: "PUT",
+    body: JSON.stringify({ eventId, isLocked }),
+  });
+}
+
+export function requestAiSeating(eventId: string, prompt: string) {
+  return request<AiSeatingResult>("/api/ai-seating", {
+    method: "POST",
+    body: JSON.stringify({ eventId, prompt }),
   });
 }
 

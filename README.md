@@ -36,12 +36,15 @@ One-time setup:
    (the couple's gift ledger), then `supabase/migrations/20261008000000_rsvp_tokens.sql`
    (guests' personal RSVP links), then
    `supabase/migrations/20261009000000_guest_last_contacted.sql` (when each
-   guest was last sent an RSVP message), then `supabase/seed.sql`
+   guest was last sent an RSVP message), then
+   `supabase/migrations/20261010000000_ai_seating.sql` (the AI seating
+   assistant's usage quota and lock), then `supabase/seed.sql`
    (optional demo data).
    Then enable the role hook: **Authentication → Hooks → Customize Access
    Token (JWT) Claims** → Postgres function `public.custom_access_token_hook`.
 3. Copy `.env.example` to `.env.local` and fill in `SUPABASE_URL`,
-   `SUPABASE_SECRET_KEY` and `SUPABASE_PUBLISHABLE_KEY` from the project's settings.
+   `SUPABASE_SECRET_KEY` and `SUPABASE_PUBLISHABLE_KEY` from the project's settings,
+   and `OPENAI_API_KEY` for the AI seating assistant.
 4. Create your admin account: in **Authentication → Users**, add a user, then
    run the commented `insert into public.profiles ...` query at the bottom of
    the roles migration with that user's email.

@@ -27,6 +27,7 @@ import type { Guest } from "@/types/guest";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
 
 interface SeatingViewProps {
+  eventId: string;
   guests: Guest[];
   tables: SeatingTable[];
   zones: SeatingZone[];
@@ -51,6 +52,7 @@ interface SeatingViewProps {
 }
 
 export default function SeatingView({
+  eventId,
   guests,
   tables,
   zones,
@@ -390,11 +392,9 @@ export default function SeatingView({
       )}
 
       <SeatingCopilotChat
+        eventId={eventId}
         guests={guests}
         tables={tables}
-        zones={zones}
-        onAddTables={onAddTables}
-        onDeleteTable={onDeleteTable}
         onBulkSeatGuests={onBulkSeatGuests}
       />
 
