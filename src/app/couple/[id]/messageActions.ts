@@ -12,9 +12,11 @@ import type { EventRecord } from "@/types/event";
 
 // Sends RSVP invitations as a WhatsApp message template (WHATSAPP_RSVP_TEMPLATE,
 // approved in WhatsApp Manager) whose body takes {{1}} guest name, {{2}} couple
-// names, {{3}} the guest's RSVP link. Only the event's couple and admins may
-// trigger it, and recipients are always looked up from the database, never
-// taken from the client, so nobody can send links for another event's guests.
+// names, {{3}} event date, {{4}} venue, {{5}} the guest's RSVP link. Meta
+// rejects the send unless exactly these 5 are passed. Only the event's couple
+// and admins may trigger it, and recipients are always looked up from the
+// database, never taken from the client, so nobody can send links for another
+// event's guests.
 
 export type SendMessagesResult =
   | {
@@ -90,16 +92,34 @@ async function appBaseUrl(): Promise<string> {
   return `${proto}://${host}`;
 }
 
+// eventDate is a plain YYYY-MM-DD string; guests read DD/MM/YYYY.
+function formatTemplateDate(eventDate: string): string {
+  const [year, month, day] = eventDate.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : eventDate;
+}
+
+// Meta rejects empty template parameters, so blank fields get a placeholder.
+function templateParam(value: string): string {
+  return value.trim() || "-";
+}
+
 function sendRsvpTemplate(
   template: RsvpTemplate,
   event: EventRecord,
   recipient: { name: string; phone: string; rsvpUrl: string },
 ) {
-  return sendWhatsAppTemplate(recipient.phone, template.name, template.language, [
-    recipient.name,
-    event.coupleNames,
-    recipient.rsvpUrl,
-  ]);
+  return sendWhatsAppTemplate(
+    recipient.phone,
+    template.name,
+    template.language,
+    [
+      recipient.name,
+      event.coupleNames,
+      formatTemplateDate(event.eventDate),
+      event.venue,
+      recipient.rsvpUrl,
+    ].map(templateParam),
+  );
 }
 
 // Records when the guests were last messaged. The messages are already out
