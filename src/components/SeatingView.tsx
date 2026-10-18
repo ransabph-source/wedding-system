@@ -22,7 +22,7 @@ import UnseatedGuestsPanel from "@/components/UnseatedGuestsPanel";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { SeatingPickProvider, type SeatingPick } from "@/lib/seatingPick";
 import { formatTableLabel } from "@/lib/tableDisplay";
-import type { Guest } from "@/types/guest";
+import type { Guest, SeatingAssignment } from "@/types/guest";
 import type { SeatingTable, SeatingZone } from "@/types/seating";
 
 interface SeatingViewProps {
@@ -49,6 +49,33 @@ interface SeatingViewProps {
   searchQuery: string;
 }
 
+// One single-guest move (drag, tap-to-move or removing a guest from a table),
+// kept so it can be undone. Seats are full assignments rather than table IDs
+// because guests can also sit in a zone or be unseated (null).
+interface SeatingMove {
+  guestId: string;
+  from: SeatingAssignment | null;
+  to: SeatingAssignment | null;
+}
+
+// Old moves are dropped beyond this; undo is for slips, not a full history.
+const MAX_UNDO_MOVES = 50;
+
+function sameAssignment(
+  a: SeatingAssignment | null,
+  b: SeatingAssignment | null,
+) {
+  return a?.kind === b?.kind && a?.id === b?.id;
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
+}
+
 export default function SeatingView({
   eventId,
   guests,
@@ -73,6 +100,9 @@ export default function SeatingView({
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [tableToSwap, setTableToSwap] = useState<string | null>(null);
   const [pickedGuestId, setPickedGuestId] = useState<string | null>(null);
+  // Newest move last. Lives only in this screen: leaving the seating tab
+  // clears it.
+  const [undoStack, setUndoStack] = useState<SeatingMove[]>([]);
   const [swapToast, setSwapToast] = useState<{
     id: number;
     message: string;
@@ -145,6 +175,7 @@ export default function SeatingView({
     const targetTable = tables.find((table) => table.id === tableId);
     if (!targetTable) return;
 
+    clearUndo();
     onSwapTables(swapSourceTable.id, targetTable.id);
     setTableToSwap(null);
     // A fresh id re-mounts the toast (restarting its entrance animation and
@@ -156,24 +187,122 @@ export default function SeatingView({
     }));
   }
 
+  // Applies a seat change through the same handlers as drag-and-drop, so it
+  // is saved the same way.
+  function applyAssignment(guestId: string, to: SeatingAssignment | null) {
+    if (!to) onUnseatGuest(guestId);
+    else if (to.kind === "zone") onSeatGuestToZone(guestId, to.id);
+    else onSeatGuestToTable(guestId, to.id);
+  }
+
+  function seatGuest(guestId: string, to: SeatingAssignment | null) {
+    const guest = guests.find((g) => g.id === guestId);
+    if (!guest || sameAssignment(guest.seatingAssignment, to)) return;
+    applyAssignment(guestId, to);
+    setUndoStack((prev) =>
+      [...prev, { guestId, from: guest.seatingAssignment, to }].slice(
+        -MAX_UNDO_MOVES,
+      ),
+    );
+  }
+
+  // Bulk changes move many guests at once, so older single moves may no
+  // longer make sense on top of them.
+  function clearUndo() {
+    setUndoStack([]);
+  }
+
+  function seatExists(assignment: SeatingAssignment | null) {
+    if (!assignment) return true;
+    return assignment.kind === "zone"
+      ? zones.some((zone) => zone.id === assignment.id)
+      : tables.some((table) => table.id === assignment.id);
+  }
+
+  function handleUndo() {
+    const move = undoStack.at(-1);
+    if (!move) return;
+    const guest = guests.find((g) => g.id === move.guestId);
+    // Someone else changed the seating meanwhile (another device, an admin
+    // removing a table), so the history no longer matches; drop all of it
+    // rather than undo onto the wrong state.
+    if (
+      !guest ||
+      !sameAssignment(guest.seatingAssignment, move.to) ||
+      !seatExists(move.from)
+    ) {
+      clearUndo();
+      return;
+    }
+    applyAssignment(move.guestId, move.from);
+    setUndoStack((prev) => prev.slice(0, -1));
+  }
+
   // Shared by drag-and-drop and tap-to-move. `targetId` is a droppable id.
   function moveGuest(guestId: string, targetId: string) {
     if (targetId === "unseated") {
-      onUnseatGuest(guestId);
+      seatGuest(guestId, null);
       return;
     }
 
     const zone = zones.find((z) => z.id === targetId);
     if (zone) {
-      onSeatGuestToZone(guestId, zone.id);
+      seatGuest(guestId, { kind: "zone", id: zone.id });
       return;
     }
 
     const table = tables.find((t) => t.id === targetId);
     if (table) {
-      onSeatGuestToTable(guestId, table.id);
+      seatGuest(guestId, { kind: "table", id: table.id });
     }
   }
+
+  function handleRemoveGuest(guestId: string) {
+    seatGuest(guestId, null);
+  }
+
+  function handleBulkSeatGuests(
+    assignments: { guestId: string; tableId: string | null }[],
+  ) {
+    clearUndo();
+    onBulkSeatGuests(assignments);
+  }
+
+  function handleEmptyTable(tableId: string) {
+    clearUndo();
+    onEmptyTable(tableId);
+  }
+
+  function handleCreateZone(zone: SeatingZone) {
+    clearUndo();
+    onCreateZone(zone);
+  }
+
+  function handleDeleteZone(zoneId: string) {
+    clearUndo();
+    onDeleteZone(zoneId);
+  }
+
+  // Ctrl+Z / Cmd+Z, except while typing (e.g. in the search box), where it
+  // should undo the text instead. Re-registered each render so it always
+  // sees the current stack and guests.
+  useEffect(() => {
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if (
+        e.key.toLowerCase() !== "z" ||
+        !(e.ctrlKey || e.metaKey) ||
+        e.shiftKey ||
+        e.altKey ||
+        isEditableTarget(e.target)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      handleUndo();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   const seatingPick: SeatingPick = {
     pickedGuestId: pickedGuest?.id ?? null,
@@ -204,18 +333,45 @@ export default function SeatingView({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => setIsAiModalOpen(true)}
-          className="group relative isolate flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-l from-fuchsia-600 via-violet-600 to-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/40 transition hover:shadow-xl hover:shadow-violet-500/50 active:scale-[0.99]"
-        >
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 -z-10 animate-pulse bg-gradient-to-l from-fuchsia-500 via-violet-500 to-indigo-500 opacity-70 blur-xl"
-          />
-          <span>✨</span>
-          <span>שיבוץ חכם (AI)</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setIsAiModalOpen(true)}
+            className="group relative isolate flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-l from-fuchsia-600 via-violet-600 to-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/40 transition hover:shadow-xl hover:shadow-violet-500/50 active:scale-[0.99]"
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 -z-10 animate-pulse bg-gradient-to-l from-fuchsia-500 via-violet-500 to-indigo-500 opacity-70 blur-xl"
+            />
+            <span>✨</span>
+            <span>שיבוץ חכם (AI)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={undoStack.length === 0}
+            title="בטל פעולה (Ctrl+Z)"
+            aria-keyshortcuts="Control+Z"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-zinc-700 shadow-sm ring-1 ring-black/5 transition hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white disabled:active:scale-100 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900"
+          >
+            {/* Mirrored in RTL so the arrow points back along the reading
+                direction. */}
+            <svg
+              className="h-4 w-4 rtl:-scale-x-100"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7.793 2.232a.75.75 0 0 1-.025 1.06L3.622 7.25h10.003a5.375 5.375 0 0 1 0 10.75H10.75a.75.75 0 0 1 0-1.5h2.875a3.875 3.875 0 0 0 0-7.75H3.622l4.146 3.957a.75.75 0 0 1-1.036 1.085l-5.5-5.25a.75.75 0 0 1 0-1.085l5.5-5.25a.75.75 0 0 1 1.06.025Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>בטל פעולה</span>
+          </button>
+        </div>
 
         <AiSmartSeatingModal
           isOpen={isAiModalOpen}
@@ -223,7 +379,7 @@ export default function SeatingView({
           unseatedGuests={allUnseatedGuests}
           tables={tables}
           allGuests={guests}
-          onApplyAssignments={onBulkSeatGuests}
+          onApplyAssignments={handleBulkSeatGuests}
         />
 
         {/* Tables are added, removed and resized by admins on the admin
@@ -231,7 +387,7 @@ export default function SeatingView({
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
           <CreateZoneForm
             availableTables={ungroupedTables}
-            onCreateZone={onCreateZone}
+            onCreateZone={handleCreateZone}
           />
           <FloorPlanUploader
             floorPlanUrl={floorPlanUrl}
@@ -294,8 +450,8 @@ export default function SeatingView({
                             guest.seatingAssignment?.kind === "zone" &&
                             guest.seatingAssignment.id === zone.id,
                         )}
-                        onRemoveGuest={onUnseatGuest}
-                        onDeleteZone={onDeleteZone}
+                        onRemoveGuest={handleRemoveGuest}
+                        onDeleteZone={handleDeleteZone}
                         searchQuery={searchQuery}
                       />
                     ))}
@@ -342,8 +498,8 @@ export default function SeatingView({
                           guest.seatingAssignment?.kind === "table" &&
                           guest.seatingAssignment.id === table.id,
                       )}
-                      onRemoveGuest={onUnseatGuest}
-                      onEmptyTable={onEmptyTable}
+                      onRemoveGuest={handleRemoveGuest}
+                      onEmptyTable={handleEmptyTable}
                       searchQuery={searchQuery}
                       swapMode={
                         !swapSourceTable
@@ -393,7 +549,7 @@ export default function SeatingView({
         eventId={eventId}
         guests={guests}
         tables={tables}
-        onBulkSeatGuests={onBulkSeatGuests}
+        onBulkSeatGuests={handleBulkSeatGuests}
       />
 
       {swapToast && (
