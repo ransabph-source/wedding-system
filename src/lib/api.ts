@@ -1,5 +1,6 @@
 // Browser-side wrappers around the /api routes.
 import type { AiSeatingResult, AiSeatingStatus } from "@/types/aiSeating";
+import type { BudgetItem } from "@/types/budget";
 import type { ClientAccount } from "@/types/client";
 import type { EventPhase, EventRecord } from "@/types/event";
 import type { Gift } from "@/types/gift";
@@ -95,6 +96,30 @@ export function saveGifts(eventId: string, gifts: Gift[], keepalive = false) {
 
 export function deleteGifts(eventId: string, ids: string[]) {
   return request<void>(giftsUrl(eventId), {
+    method: "DELETE",
+    body: JSON.stringify({ ids }),
+  });
+}
+
+function budgetUrl(eventId: string) {
+  return `/api/events/${encodeURIComponent(eventId)}/budget`;
+}
+
+// The first load also adds the default categories to a new event's budget.
+export function fetchBudgetItems(eventId: string) {
+  return request<BudgetItem[]>(budgetUrl(eventId));
+}
+
+// Creates or replaces budget rows by ID.
+export function saveBudgetItems(eventId: string, items: BudgetItem[]) {
+  return request<BudgetItem[]>(budgetUrl(eventId), {
+    method: "PUT",
+    body: JSON.stringify(items),
+  });
+}
+
+export function deleteBudgetItems(eventId: string, ids: string[]) {
+  return request<void>(budgetUrl(eventId), {
     method: "DELETE",
     body: JSON.stringify({ ids }),
   });

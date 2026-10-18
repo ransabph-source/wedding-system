@@ -19,7 +19,6 @@ import RsvpSummaryWidget from "@/components/RsvpSummaryWidget";
 import SelfCheckInQrModal from "@/components/SelfCheckInQrModal";
 import SearchBar from "@/components/SearchBar";
 import StatsBar from "@/components/StatsBar";
-import { DEFAULT_BUDGET_ITEMS } from "@/lib/budgetCategories";
 import { findDuplicateGuests } from "@/lib/duplicateDetector";
 import { useEventData, useEventEngine } from "@/lib/eventEngine";
 import {
@@ -31,7 +30,6 @@ import {
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { getConfirmedCount } from "@/lib/guestRsvp";
 import { useFloorPlan } from "@/lib/useFloorPlan";
-import type { BudgetItem } from "@/types/budget";
 import type { Guest, RsvpStatus } from "@/types/guest";
 import type { SeatingZone } from "@/types/seating";
 
@@ -155,8 +153,6 @@ export default function CouplePortalPage() {
   const [guestGroups, setGuestGroups] = useState<string[]>(DEFAULT_GUEST_GROUPS);
   const floorPlan = useFloorPlan(id);
   const [searchQuery, setSearchQuery] = useState("");
-  const [budgetItems, setBudgetItems] =
-    useState<BudgetItem[]>(DEFAULT_BUDGET_ITEMS);
   const [averageGiftAmount, setAverageGiftAmount] = useState(0);
   const [ignoredDuplicateKeys, setIgnoredDuplicateKeys] = useState<
     Set<string>
@@ -397,25 +393,6 @@ export default function CouplePortalPage() {
     );
   }
 
-  function handleAddBudgetItem(item: BudgetItem) {
-    setBudgetItems((prev) => [...prev, item]);
-  }
-
-  function handleUpdateBudgetItem(
-    itemId: string,
-    updates: Partial<
-      Pick<BudgetItem, "category" | "supplierName" | "actualCost" | "paidSoFar">
-    >,
-  ) {
-    setBudgetItems((prev) =>
-      prev.map((item) => (item.id === itemId ? { ...item, ...updates } : item)),
-    );
-  }
-
-  function handleDeleteBudgetItem(itemId: string) {
-    setBudgetItems((prev) => prev.filter((item) => item.id !== itemId));
-  }
-
   if (dataStatus !== "ready") return <EventDataStatus status={dataStatus} />;
 
   return (
@@ -647,11 +624,8 @@ export default function CouplePortalPage() {
                 <PhaseLockBanner message={PHASE_LOCK_MESSAGES[phase]} />
               )}
               <BudgetManagerView
-                items={budgetItems}
+                eventId={id}
                 readOnly={!canEdit("budget")}
-                onAddItem={handleAddBudgetItem}
-                onUpdateItem={handleUpdateBudgetItem}
-                onDeleteItem={handleDeleteBudgetItem}
                 confirmedGuestsCount={confirmedGuestsCount}
                 averageGiftAmount={averageGiftAmount}
                 onAverageGiftAmountChange={setAverageGiftAmount}

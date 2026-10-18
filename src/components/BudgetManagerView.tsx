@@ -2,19 +2,12 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { BRANDED_BUDGET_ITEM_ID } from "@/lib/budgetCategories";
+import { useBudget } from "@/lib/useBudget";
 import type { BudgetItem } from "@/types/budget";
 
 interface BudgetManagerViewProps {
-  items: BudgetItem[];
+  eventId: string;
   readOnly?: boolean;
-  onAddItem: (item: BudgetItem) => void;
-  onUpdateItem: (
-    itemId: string,
-    updates: Partial<
-      Pick<BudgetItem, "category" | "supplierName" | "actualCost" | "paidSoFar">
-    >,
-  ) => void;
-  onDeleteItem: (itemId: string) => void;
   confirmedGuestsCount: number;
   averageGiftAmount: number;
   onAverageGiftAmountChange: (value: number) => void;
@@ -48,15 +41,21 @@ function formatCurrency(value: number): string {
 }
 
 export default function BudgetManagerView({
-  items,
+  eventId,
   readOnly = false,
-  onAddItem,
-  onUpdateItem,
-  onDeleteItem,
   confirmedGuestsCount,
   averageGiftAmount,
   onAverageGiftAmountChange,
 }: BudgetManagerViewProps) {
+  const {
+    items,
+    loadStatus,
+    saveStatus,
+    addItem: onAddItem,
+    updateItem: onUpdateItem,
+    removeItem: onDeleteItem,
+    retrySave,
+  } = useBudget(eventId);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [draftValue, setDraftValue] = useState("");
 
@@ -109,12 +108,13 @@ export default function BudgetManagerView({
     if (!editingCell) return;
     const { field } = editingCell;
 
+    // Unchanged values aren't saved again.
     if (NUMBER_FIELDS.includes(field)) {
       const parsed = Number(draftValue);
-      if (Number.isFinite(parsed) && parsed >= 0) {
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed !== item[field]) {
         onUpdateItem(item.id, { [field]: parsed });
       }
-    } else {
+    } else if (draftValue.trim() !== item[field]) {
       onUpdateItem(item.id, { [field]: draftValue.trim() });
     }
 
@@ -183,9 +183,48 @@ export default function BudgetManagerView({
     );
   }
 
+  if (loadStatus !== "ready") {
+    return (
+      <p className="rounded-xl bg-white px-6 py-10 text-center text-sm text-zinc-500 shadow-md ring-1 ring-black/5 dark:bg-zinc-900 dark:text-zinc-400">
+        {loadStatus === "loading"
+          ? "טוען את התקציב..."
+          : "טעינת התקציב נכשלה. רעננו את הדף ונסו שוב."}
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
+        {!readOnly && (
+          <div className="flex justify-end border-b border-zinc-100 px-3 py-1.5 dark:border-zinc-800">
+            <span
+              role="status"
+              className={`text-xs ${
+                saveStatus === "error"
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-zinc-400 dark:text-zinc-500"
+              }`}
+            >
+              {saveStatus === "saving" ? (
+                "שומר..."
+              ) : saveStatus === "error" ? (
+                <>
+                  השמירה נכשלה ·{" "}
+                  <button
+                    type="button"
+                    onClick={retrySave}
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    נסו שוב
+                  </button>
+                </>
+              ) : (
+                "כל השינויים נשמרו"
+              )}
+            </span>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[34rem] text-right">
             <thead>

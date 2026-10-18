@@ -1,5 +1,6 @@
 // Converts between the app's camelCase models and the snake_case database
 // rows. Absent optional fields are stored as null and read back as undefined.
+import type { BudgetItem } from "@/types/budget";
 import type { EventRecord } from "@/types/event";
 import type { Gift } from "@/types/gift";
 import type { Guest } from "@/types/guest";
@@ -216,5 +217,36 @@ export function giftToRow(eventId: string, gift: Gift): GiftRow {
     guest_name: gift.guestName,
     attendees: gift.attendees,
     amount: gift.amount,
+  };
+}
+
+export interface BudgetItemRow {
+  event_id: string;
+  id: string;
+  category: string;
+  supplier: string;
+  // numeric columns; Number() below also copes with them arriving as strings.
+  actual_cost: number;
+  paid_amount: number;
+}
+
+export function budgetItemFromRow(row: BudgetItemRow): BudgetItem {
+  return {
+    id: row.id,
+    category: row.category,
+    supplierName: row.supplier,
+    actualCost: Number(row.actual_cost),
+    paidSoFar: Number(row.paid_amount),
+  };
+}
+
+export function budgetItemToRow(eventId: string, item: BudgetItem): BudgetItemRow {
+  return {
+    event_id: eventId,
+    id: item.id,
+    category: item.category,
+    supplier: item.supplierName,
+    actual_cost: item.actualCost,
+    paid_amount: item.paidSoFar,
   };
 }
