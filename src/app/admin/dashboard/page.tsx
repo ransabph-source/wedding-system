@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
               <span dir="ltr" className="break-all">{created.email}</span>
             </p>
             <Link
-              href={`/couple/${created.event.id}`}
+              href={`/admin/events/${created.event.id}`}
               className="mt-2 inline-block text-sm font-semibold text-emerald-800 underline underline-offset-2 dark:text-emerald-300"
             >
               מעבר לעמוד האירוע

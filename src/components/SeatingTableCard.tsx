@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import GuestChip from "@/components/GuestChip";
 import SeatingPickTarget from "@/components/SeatingPickTarget";
@@ -13,10 +13,7 @@ interface SeatingTableCardProps {
   table: SeatingTable;
   guests: Guest[];
   onRemoveGuest: (guestId: string) => void;
-  onEditTable: (tableId: string, updates: { name: string; capacity: number }) => void;
-  onDeleteTable: (tableId: string) => void;
   onEmptyTable: (tableId: string) => void;
-  onToggleReserved: (tableId: string) => void;
   searchQuery?: string;
   // "source" = this table was picked first; "target" = another table was
   // picked and this one can be clicked to complete the swap.
@@ -29,23 +26,16 @@ export default function SeatingTableCard({
   table,
   guests,
   onRemoveGuest,
-  onEditTable,
-  onDeleteTable,
   onEmptyTable,
-  onToggleReserved,
   searchQuery = "",
   swapMode = "idle",
   justSwapped = false,
   onSwapClick,
 }: SeatingTableCardProps) {
   const { setNodeRef, isOver } = useDroppable({ id: table.id });
-  const [isEditing, setIsEditing] = useState(false);
-  const [confirmingAction, setConfirmingAction] = useState<
-    "delete" | "empty" | null
-  >(null);
-  const [name, setName] = useState(table.name);
-  const [capacity, setCapacity] = useState(String(table.capacity));
-  const [error, setError] = useState<string | null>(null);
+  // Table structure (name, capacity, reserved) is managed by admins on the
+  // admin event page; here guests are only moved in and out.
+  const [isConfirmingEmpty, setIsConfirmingEmpty] = useState(false);
 
   const seatedCount = guests.reduce((sum, guest) => sum + guest.partySize, 0);
   const isOverCapacity = seatedCount > table.capacity;
@@ -74,33 +64,6 @@ export default function SeatingTableCard({
             ? "ring-2 ring-amber-400 dark:ring-amber-500/60"
             : "ring-black/5";
 
-  function startEdit() {
-    setName(table.name);
-    setCapacity(String(table.capacity));
-    setError(null);
-    setConfirmingAction(null);
-    setIsEditing(true);
-  }
-
-  function handleSaveEdit(e: FormEvent) {
-    e.preventDefault();
-    const trimmedName = name.trim();
-    const parsedCapacity = Math.floor(Number(capacity));
-
-    if (!trimmedName) {
-      setError("יש להזין שם/מספר שולחן");
-      return;
-    }
-    if (!Number.isFinite(parsedCapacity) || parsedCapacity <= 0) {
-      setError("יש להזין מספר מקומות תקין");
-      return;
-    }
-
-    onEditTable(table.id, { name: trimmedName, capacity: parsedCapacity });
-    setIsEditing(false);
-    setError(null);
-  }
-
   return (
     <div
       ref={setNodeRef}
@@ -111,96 +74,25 @@ export default function SeatingTableCard({
           בחר שולחן להחלפה
         </p>
       )}
-      {isEditing ? (
-        <form onSubmit={handleSaveEdit} className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor={`edit-name-${table.id}`}
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              שם/מספר שולחן
-            </label>
-            <input
-              id={`edit-name-${table.id}`}
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError(null);
-              }}
-              autoFocus
-              className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor={`edit-capacity-${table.id}`}
-              className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              מספר מקומות
-            </label>
-            <input
-              id={`edit-capacity-${table.id}`}
-              type="number"
-              min={1}
-              value={capacity}
-              onChange={(e) => {
-                setCapacity(e.target.value);
-                setError(null);
-              }}
-              className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
-            />
-          </div>
-
-          {error && (
-            <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
-          )}
-
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 active:bg-indigo-800"
-            >
-              שמירה
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditing(false);
-                setError(null);
-              }}
-              className="flex-1 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            >
-              ביטול
-            </button>
-          </div>
-        </form>
-      ) : confirmingAction ? (
+      {isConfirmingEmpty ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            {confirmingAction === "delete"
-              ? `למחוק את ${tableLabel}? אורחים שמשובצים אליו יעברו לרשימת האורחים ללא שולחן, ומספרי השולחנות שאחריו יתעדכנו.`
-              : `לרוקן את ${tableLabel}? כל ${guests.length} האורחים שמשובצים אליו יחזרו לרשימת האורחים ללא שולחן.`}
+            {`לרוקן את ${tableLabel}? כל ${guests.length} האורחים שמשובצים אליו יחזרו לרשימת האורחים ללא שולחן.`}
           </p>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => {
-                if (confirmingAction === "delete") {
-                  onDeleteTable(table.id);
-                } else {
-                  onEmptyTable(table.id);
-                }
-                setConfirmingAction(null);
+                onEmptyTable(table.id);
+                setIsConfirmingEmpty(false);
               }}
               className="flex-1 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 active:bg-rose-800"
             >
-              {confirmingAction === "delete" ? "כן, מחיקה" : "כן, רוקן"}
+              כן, רוקן
             </button>
             <button
               type="button"
-              onClick={() => setConfirmingAction(null)}
+              onClick={() => setIsConfirmingEmpty(false)}
               className="flex-1 rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
             >
               ביטול
@@ -278,51 +170,10 @@ export default function SeatingTableCard({
                   )}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => onToggleReserved(table.id)}
-                aria-pressed={table.isReserved}
-                aria-label={
-                  table.isReserved
-                    ? `ביטול רזרבה עבור ${tableLabel}`
-                    : `הגדרת ${tableLabel} כרזרבה`
-                }
-                title={table.isReserved ? "ביטול רזרבה" : "הגדר כרזרבה"}
-                className={`grid h-9 w-9 place-items-center rounded-full transition md:h-7 md:w-7 ${
-                  table.isReserved
-                    ? "bg-amber-100 text-amber-600 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:hover:bg-amber-500/25"
-                    : "text-zinc-400 hover:bg-amber-100 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-400"
-                }`}
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M6.32 2.577a49.255 49.255 0 0 1 11.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 0 1-1.085.67L12 18.089l-7.165 3.583A.75.75 0 0 1 3.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93Z" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={startEdit}
-                aria-label={`עריכת ${tableLabel}`}
-                className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-400"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path d="M5.433 13.917l1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" />
-                  <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" />
-                </svg>
-              </button>
               {guests.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setConfirmingAction("empty")}
+                  onClick={() => setIsConfirmingEmpty(true)}
                   aria-label={`ריקון ${tableLabel}`}
                   title="רוקן שולחן"
                   className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
@@ -337,25 +188,6 @@ export default function SeatingTableCard({
                   </svg>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setConfirmingAction("delete")}
-                aria-label={`מחיקת ${tableLabel}`}
-                className="grid h-9 w-9 place-items-center rounded-full text-zinc-400 md:h-7 md:w-7 transition hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
-              >
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
             </div>
 
             <span

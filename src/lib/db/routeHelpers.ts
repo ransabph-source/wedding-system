@@ -115,6 +115,9 @@ interface CollectionConfig<Item extends { id: string }, Row> {
   // Columns that belong to a different section, e.g. a guest's table belongs
   // to "seating" so it stays editable after the guest list is locked.
   coupleColumnSections?: Partial<Record<keyof Row & string, CoupleSection>>;
+  // Refuses POST, PUT and DELETE from everyone but admins, e.g. for table
+  // structure, which couples and staff may read but never change.
+  adminOnlyWrites?: boolean;
 }
 
 function isItemArray(value: unknown): value is { id: string }[] {
@@ -168,6 +171,7 @@ export async function checkCouplePhase(
 // staff may PUT changes to staffWritableColumns of existing items and, where
 // prepareStaffInsert allows it, POST new items. A couple's
 // writes must also be allowed by the event's phase; admins bypass phase locks.
+// With adminOnlyWrites, only admins may write at all.
 export function createCollectionHandlers<Item extends { id: string }, Row>({
   table,
   fromRow,
@@ -178,7 +182,14 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
   prepareStaffInsert,
   coupleSection,
   coupleColumnSections = {},
+  adminOnlyWrites = false,
 }: CollectionConfig<Item, Row>) {
+  function refuseNonAdminWrite(user: CurrentUser): Response | null {
+    return adminOnlyWrites && user.role !== "admin"
+      ? jsonError("Only admins can change this", 403)
+      : null;
+  }
+
   async function readItems(request: Request, eventId: string) {
     const body = await readJson(request);
     if (!isItemArray(body)) return null;
@@ -276,6 +287,8 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
       const { eventId } = await ctx.params;
       const auth = await authorizeEvent(eventId, "view");
       if (auth instanceof Response) return auth;
+      const refused = refuseNonAdminWrite(auth);
+      if (refused) return refused;
       let rows = await readItems(request, eventId);
       if (!rows) return jsonError("Expected an array of items with IDs", 400);
       if (auth.role === "staff") {
@@ -306,6 +319,8 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
       const { eventId } = await ctx.params;
       const auth = await authorizeEvent(eventId, "view");
       if (auth instanceof Response) return auth;
+      const refused = refuseNonAdminWrite(auth);
+      if (refused) return refused;
       const rows = await readItems(request, eventId);
       if (!rows) return jsonError("Expected an array of items with IDs", 400);
       if (auth.role === "staff") return staffUpdate(eventId, rows);
@@ -333,6 +348,8 @@ export function createCollectionHandlers<Item extends { id: string }, Row>({
       const { eventId } = await ctx.params;
       const auth = await authorizeEvent(eventId, "edit");
       if (auth instanceof Response) return auth;
+      const refused = refuseNonAdminWrite(auth);
+      if (refused) return refused;
       if (auth.role === "couple") {
         const locked = await checkCouplePhase(eventId, [coupleSection]);
         if (locked) return locked;

@@ -5,7 +5,7 @@ import {
   sendRsvpMessages,
   sendTestMessage,
   type SendMessagesResult,
-} from "@/app/couple/[id]/messageActions";
+} from "@/app/admin/events/[id]/messageActions";
 import { hasPhoneNumber } from "@/lib/guestRsvp";
 import type { Guest } from "@/types/guest";
 
@@ -25,9 +25,9 @@ const ERROR_MESSAGES: Record<
   Extract<SendMessagesResult, { ok: false }>["reason"],
   string
 > = {
-  unauthorized: "אין לכם הרשאה לשלוח הודעות לאירוע זה.",
+  unauthorized: "שליחת הודעות זמינה למנהלי המערכת בלבד.",
   not_configured:
-    "חיבור WhatsApp לא הוגדר בשרת (אסימון גישה, מזהה מספר או תבנית הודעה). פנו למנהל המערכת.",
+    "חיבור WhatsApp לא הוגדר בשרת (אסימון גישה, מזהה מספר או תבנית הודעה).",
   invalid: "הפרטים שהוזנו אינם תקינים.",
   rate_limited: "נשלחו יותר מדי הודעות נסיון. נסו שוב בעוד מספר דקות.",
   send_failed: "WhatsApp לא אישר את שליחת ההודעות. נסו שוב מאוחר יותר.",

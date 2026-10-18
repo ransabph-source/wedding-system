@@ -125,6 +125,13 @@ export default function AdminCrmPage() {
                         </Link>
 
                         <Link
+                          href={`/admin/events/${event.id}`}
+                          className="flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 px-3 py-1.5 text-sm font-semibold sm:min-h-0 sm:text-xs text-indigo-700 transition hover:bg-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20"
+                        >
+                          ניהול אירוע (הודעות ושולחנות)
+                        </Link>
+
+                        <Link
                           href={`/live/${event.id}`}
                           className="flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 px-3 py-1.5 text-sm font-semibold sm:min-h-0 sm:text-xs text-amber-700 transition hover:bg-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20"
                         >

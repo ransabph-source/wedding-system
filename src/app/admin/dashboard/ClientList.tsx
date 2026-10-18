@@ -192,7 +192,7 @@ function ClientRow({
               <Detail label="שמות בני הזוג">
                 {event ? (
                   <Link
-                    href={`/couple/${event.id}`}
+                    href={`/admin/events/${event.id}`}
                     className="font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
                   >
                     {event.coupleNames}

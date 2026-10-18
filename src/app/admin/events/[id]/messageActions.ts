@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { canAccessEvent, getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getEvent } from "@/lib/db/events";
 import { guestFromRow, type GuestRow } from "@/lib/db/mappers";
 import { normalizePhone } from "@/lib/guestRsvp";
@@ -13,10 +13,10 @@ import type { EventRecord } from "@/types/event";
 // Sends RSVP invitations as a WhatsApp message template (WHATSAPP_RSVP_TEMPLATE,
 // approved in WhatsApp Manager) whose body takes {{1}} guest name, {{2}} couple
 // names, {{3}} event date, {{4}} venue, {{5}} the guest's RSVP link. Meta
-// rejects the send unless exactly these 5 are passed. Only the event's couple
-// and admins may trigger it, and recipients are always looked up from the
-// database, never taken from the client, so nobody can send links for another
-// event's guests.
+// rejects the send unless exactly these 5 are passed. Messaging is a managed
+// service, so only admins may trigger it (couples can't, even for their own
+// event), and recipients are always looked up from the database, never taken
+// from the client.
 
 export type SendMessagesResult =
   | {
@@ -73,10 +73,11 @@ function rsvpTemplate(): RsvpTemplate | null {
   };
 }
 
-async function authorize(eventId: string): Promise<string | null> {
+// Server actions can be called directly by anyone signed in, so this check,
+// not the admin layout, is what keeps couples and staff out.
+async function authorize(): Promise<string | null> {
   const user = await getCurrentUser();
-  if (!user || !(await canAccessEvent(user, eventId, "edit"))) return null;
-  return user.id;
+  return user?.role === "admin" ? user.id : null;
 }
 
 // Links must open for guests on their phones, so production should set
@@ -141,7 +142,7 @@ export async function sendRsvpMessages(
   guestIds: string[],
 ): Promise<SendMessagesResult> {
   if (typeof eventId !== "string") return { ok: false, reason: "invalid" };
-  if (!(await authorize(eventId))) return { ok: false, reason: "unauthorized" };
+  if (!(await authorize())) return { ok: false, reason: "unauthorized" };
   const template = rsvpTemplate();
   if (!template) return { ok: false, reason: "not_configured" };
   if (
@@ -223,7 +224,7 @@ export async function sendTestMessage(
   phone: string,
 ): Promise<SendMessagesResult> {
   if (typeof eventId !== "string") return { ok: false, reason: "invalid" };
-  const userId = await authorize(eventId);
+  const userId = await authorize();
   if (!userId) return { ok: false, reason: "unauthorized" };
   const template = rsvpTemplate();
   if (!template) return { ok: false, reason: "not_configured" };

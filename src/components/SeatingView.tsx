@@ -11,7 +11,6 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import AddTableForm from "@/components/AddTableForm";
 import AiSmartSeatingModal from "@/components/AiSmartSeatingModal";
 import CreateZoneForm from "@/components/CreateZoneForm";
 import FloorPlanUploader from "@/components/FloorPlanUploader";
@@ -31,11 +30,7 @@ interface SeatingViewProps {
   guests: Guest[];
   tables: SeatingTable[];
   zones: SeatingZone[];
-  onAddTables: (tables: SeatingTable[]) => void;
-  onEditTable: (tableId: string, updates: { name: string; capacity: number }) => void;
-  onDeleteTable: (tableId: string) => void;
   onEmptyTable: (tableId: string) => void;
-  onToggleReserved: (tableId: string) => void;
   onCreateZone: (zone: SeatingZone) => void;
   onDeleteZone: (zoneId: string) => void;
   onSeatGuestToTable: (guestId: string, tableId: string) => void;
@@ -59,11 +54,7 @@ export default function SeatingView({
   guests,
   tables,
   zones,
-  onAddTables,
-  onEditTable,
-  onDeleteTable,
   onEmptyTable,
-  onToggleReserved,
   onCreateZone,
   onDeleteZone,
   onSeatGuestToTable,
@@ -111,7 +102,7 @@ export default function SeatingView({
     (table) => !groupedTableIds.has(table.id),
   );
 
-  // Drops out of swap mode on its own if the picked table is deleted or
+  // Drops out of swap mode on its own if the picked table is removed or
   // folded into a zone while waiting for the second pick.
   const swapSourceTable =
     ungroupedTables.find((table) => table.id === tableToSwap) ?? null;
@@ -235,8 +226,9 @@ export default function SeatingView({
           onApplyAssignments={onBulkSeatGuests}
         />
 
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-          <AddTableForm existingTables={tables} onAddTables={onAddTables} />
+        {/* Tables are added, removed and resized by admins on the admin
+            event page; this screen only seats guests at them. */}
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
           <CreateZoneForm
             availableTables={ungroupedTables}
             onCreateZone={onCreateZone}
@@ -334,6 +326,12 @@ export default function SeatingView({
                     </button>
                   </div>
                 )}
+                {tables.length === 0 && (
+                  <p className="rounded-xl bg-white/80 px-4 py-6 text-center text-sm text-zinc-500 dark:bg-zinc-900/80 dark:text-zinc-400">
+                    עדיין לא הוגדרו שולחנות לאירוע. צוות ההפקה יגדיר את
+                    השולחנות, ואז תוכלו לשבץ אליהם את האורחים.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {ungroupedTables.map((table) => (
                     <SeatingTableCard
@@ -345,10 +343,7 @@ export default function SeatingView({
                           guest.seatingAssignment.id === table.id,
                       )}
                       onRemoveGuest={onUnseatGuest}
-                      onEditTable={onEditTable}
-                      onDeleteTable={onDeleteTable}
                       onEmptyTable={onEmptyTable}
-                      onToggleReserved={onToggleReserved}
                       searchQuery={searchQuery}
                       swapMode={
                         !swapSourceTable

@@ -17,7 +17,6 @@ import ReadOnlySeatingMap from "@/components/ReadOnlySeatingMap";
 import RsvpManagementView from "@/components/RsvpManagementView";
 import RsvpSummaryWidget from "@/components/RsvpSummaryWidget";
 import SelfCheckInQrModal from "@/components/SelfCheckInQrModal";
-import SendMessagesModal from "@/components/SendMessagesModal";
 import SearchBar from "@/components/SearchBar";
 import StatsBar from "@/components/StatsBar";
 import { DEFAULT_BUDGET_ITEMS } from "@/lib/budgetCategories";
@@ -31,11 +30,10 @@ import {
 } from "@/lib/eventPhaseRules";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { getConfirmedCount } from "@/lib/guestRsvp";
-import { renumberTablesAfterDelete } from "@/lib/tableDisplay";
 import { useFloorPlan } from "@/lib/useFloorPlan";
 import type { BudgetItem } from "@/types/budget";
 import type { Guest, RsvpStatus } from "@/types/guest";
-import type { SeatingTable, SeatingZone } from "@/types/seating";
+import type { SeatingZone } from "@/types/seating";
 
 // The seating board uses @dnd-kit, which generates some internal element IDs
 // via a module-level counter that isn't guaranteed to match between a server
@@ -129,7 +127,6 @@ export default function CouplePortalPage() {
     getGuests,
     setGuests: setEngineGuests,
     getTables,
-    setTables: setEngineTables,
     getZones,
     setZones: setEngineZones,
   } = useEventEngine();
@@ -142,12 +139,8 @@ export default function CouplePortalPage() {
   function setGuests(updater: Guest[] | ((prev: Guest[]) => Guest[])) {
     setEngineGuests(id, updater);
   }
+  // Read-only here: admins manage the table structure on the admin event page.
   const tables = getTables(id);
-  function setTables(
-    updater: SeatingTable[] | ((prev: SeatingTable[]) => SeatingTable[]),
-  ) {
-    setEngineTables(id, updater);
-  }
   const zones = getZones(id);
   function setZones(
     updater: SeatingZone[] | ((prev: SeatingZone[]) => SeatingZone[]),
@@ -170,11 +163,6 @@ export default function CouplePortalPage() {
   >(() => new Set());
   const [isDuplicatesModalOpen, setIsDuplicatesModalOpen] = useState(false);
   const [isCheckInQrOpen, setIsCheckInQrOpen] = useState(false);
-  // Guest IDs picked in the table when the dialog was opened from there;
-  // null while the dialog is closed.
-  const [messageGuestIds, setMessageGuestIds] = useState<string[] | null>(
-    null,
-  );
 
   const duplicateGroups = findDuplicateGuests(guests).filter(
     (group) => !ignoredDuplicateKeys.has(duplicateGroupKey(group)),
@@ -371,40 +359,6 @@ export default function CouplePortalPage() {
         return guest;
       }),
     );
-  }
-
-  function handleAddTables(newTables: SeatingTable[]) {
-    setTables((prev) => [...prev, ...newTables]);
-  }
-
-  function handleEditTable(
-    tableId: string,
-    updates: { name: string; capacity: number },
-  ) {
-    setTables((prev) =>
-      prev.map((table) =>
-        table.id === tableId ? { ...table, ...updates } : table,
-      ),
-    );
-  }
-
-  function handleToggleReserved(tableId: string) {
-    setTables((prev) =>
-      prev.map((table) =>
-        table.id === tableId
-          ? { ...table, isReserved: !table.isReserved }
-          : table,
-      ),
-    );
-  }
-
-  function handleDeleteTable(tableId: string) {
-    setTables((prev) => {
-      const deleted = prev.find((table) => table.id === tableId);
-      const remaining = prev.filter((table) => table.id !== tableId);
-      return deleted ? renumberTablesAfterDelete(remaining, deleted) : remaining;
-    });
-    handleEmptyTable(tableId);
   }
 
   // Sends everyone seated at a table back to the unseated list.
@@ -612,27 +566,6 @@ export default function CouplePortalPage() {
                 />
               )}
 
-              {/* Sending links stays available when the list is locked, e.g.
-                  while the RSVP campaign runs. */}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setMessageGuestIds([])}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:bg-indigo-800 sm:min-h-0"
-                >
-                  שליחת הודעות
-                </button>
-              </div>
-
-              {messageGuestIds && (
-                <SendMessagesModal
-                  eventId={id}
-                  guests={guests}
-                  selectedGuestIds={messageGuestIds}
-                  onClose={() => setMessageGuestIds(null)}
-                />
-              )}
-
               <div className="overflow-hidden rounded-xl md:min-h-[60vh]">
                 <GuestTable
                   guests={visibleGuests}
@@ -656,7 +589,6 @@ export default function CouplePortalPage() {
                     canEdit("rsvp") ? handleBulkConfirmGuests : undefined
                   }
                   onBulkDeleteGuests={handleBulkDeleteGuests}
-                  onSendMessages={setMessageGuestIds}
                 />
               </div>
 
@@ -680,11 +612,7 @@ export default function CouplePortalPage() {
               guests={guests}
               tables={tables}
               zones={zones}
-              onAddTables={handleAddTables}
-              onEditTable={handleEditTable}
-              onDeleteTable={handleDeleteTable}
               onEmptyTable={handleEmptyTable}
-              onToggleReserved={handleToggleReserved}
               onCreateZone={handleCreateZone}
               onDeleteZone={handleDeleteZone}
               onSeatGuestToTable={handleSeatGuestToTable}
