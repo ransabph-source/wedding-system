@@ -49,14 +49,25 @@ interface SeatingViewProps {
   searchQuery: string;
 }
 
-// One single-guest move (drag, tap-to-move or removing a guest from a table),
-// kept so it can be undone. Seats are full assignments rather than table IDs
-// because guests can also sit in a zone or be unseated (null).
-interface SeatingMove {
-  guestId: string;
-  from: SeatingAssignment | null;
-  to: SeatingAssignment | null;
-}
+// An action kept so it can be undone: a single-guest move (drag, tap-to-move
+// or removing a guest from a table), or a swap of two tables' guests. Seats
+// are full assignments rather than table IDs because guests can also sit in a
+// zone or be unseated (null). A swap records who ended up at each table, so
+// undo can tell whether the tables still look the way the swap left them.
+type SeatingMove =
+  | {
+      kind: "guest";
+      guestId: string;
+      from: SeatingAssignment | null;
+      to: SeatingAssignment | null;
+    }
+  | {
+      kind: "swap";
+      tableAId: string;
+      tableBId: string;
+      guestIdsAtA: string[];
+      guestIdsAtB: string[];
+    };
 
 // Old moves are dropped beyond this; undo is for slips, not a full history.
 const MAX_UNDO_MOVES = 50;
@@ -66,6 +77,11 @@ function sameAssignment(
   b: SeatingAssignment | null,
 ) {
   return a?.kind === b?.kind && a?.id === b?.id;
+}
+
+function sameIds(a: string[], b: string[]) {
+  const set = new Set(a);
+  return a.length === b.length && b.every((id) => set.has(id));
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -175,16 +191,40 @@ export default function SeatingView({
     const targetTable = tables.find((table) => table.id === tableId);
     if (!targetTable) return;
 
-    clearUndo();
+    const guestIdsAtSource = guestIdsAtTable(swapSourceTable.id);
+    const guestIdsAtTarget = guestIdsAtTable(targetTable.id);
     onSwapTables(swapSourceTable.id, targetTable.id);
     setTableToSwap(null);
-    // A fresh id re-mounts the toast (restarting its entrance animation and
-    // timer) when swaps happen back to back.
-    setSwapToast((prev) => ({
-      id: (prev?.id ?? 0) + 1,
-      message: `האורחים ב${formatTableLabel(swapSourceTable)} וב${formatTableLabel(targetTable)} הוחלפו`,
-      tableIds: [swapSourceTable.id, targetTable.id],
-    }));
+    // Swapping two empty tables changes nothing, so there's nothing to undo.
+    if (guestIdsAtSource.length > 0 || guestIdsAtTarget.length > 0) {
+      pushUndo({
+        kind: "swap",
+        tableAId: swapSourceTable.id,
+        tableBId: targetTable.id,
+        guestIdsAtA: guestIdsAtTarget,
+        guestIdsAtB: guestIdsAtSource,
+      });
+    }
+    showSwapToast(
+      `האורחים ב${formatTableLabel(swapSourceTable)} וב${formatTableLabel(targetTable)} הוחלפו`,
+      [swapSourceTable.id, targetTable.id],
+    );
+  }
+
+  // A fresh id re-mounts the toast (restarting its entrance animation and
+  // timer) when swaps happen back to back.
+  function showSwapToast(message: string, tableIds: string[]) {
+    setSwapToast((prev) => ({ id: (prev?.id ?? 0) + 1, message, tableIds }));
+  }
+
+  function guestIdsAtTable(tableId: string) {
+    return guests
+      .filter(
+        (guest) =>
+          guest.seatingAssignment?.kind === "table" &&
+          guest.seatingAssignment.id === tableId,
+      )
+      .map((guest) => guest.id);
   }
 
   // Applies a seat change through the same handlers as drag-and-drop, so it
@@ -199,11 +239,11 @@ export default function SeatingView({
     const guest = guests.find((g) => g.id === guestId);
     if (!guest || sameAssignment(guest.seatingAssignment, to)) return;
     applyAssignment(guestId, to);
-    setUndoStack((prev) =>
-      [...prev, { guestId, from: guest.seatingAssignment, to }].slice(
-        -MAX_UNDO_MOVES,
-      ),
-    );
+    pushUndo({ kind: "guest", guestId, from: guest.seatingAssignment, to });
+  }
+
+  function pushUndo(move: SeatingMove) {
+    setUndoStack((prev) => [...prev, move].slice(-MAX_UNDO_MOVES));
   }
 
   // Bulk changes move many guests at once, so older single moves may no
@@ -219,23 +259,52 @@ export default function SeatingView({
       : tables.some((table) => table.id === assignment.id);
   }
 
+  // Whether the seating still looks exactly the way the move left it. Undo
+  // runs newest first, so as long as nobody else changed the seating, each
+  // entry finds the state it expects once the ones after it are undone.
+  function canUndo(move: SeatingMove) {
+    if (move.kind === "guest") {
+      const guest = guests.find((g) => g.id === move.guestId);
+      return (
+        guest !== undefined &&
+        sameAssignment(guest.seatingAssignment, move.to) &&
+        seatExists(move.from)
+      );
+    }
+    return (
+      seatExists({ kind: "table", id: move.tableAId }) &&
+      seatExists({ kind: "table", id: move.tableBId }) &&
+      sameIds(guestIdsAtTable(move.tableAId), move.guestIdsAtA) &&
+      sameIds(guestIdsAtTable(move.tableBId), move.guestIdsAtB)
+    );
+  }
+
   function handleUndo() {
     const move = undoStack.at(-1);
     if (!move) return;
-    const guest = guests.find((g) => g.id === move.guestId);
     // Someone else changed the seating meanwhile (another device, an admin
     // removing a table), so the history no longer matches; drop all of it
     // rather than undo onto the wrong state.
-    if (
-      !guest ||
-      !sameAssignment(guest.seatingAssignment, move.to) ||
-      !seatExists(move.from)
-    ) {
+    if (!canUndo(move)) {
       clearUndo();
       return;
     }
-    applyAssignment(move.guestId, move.from);
     setUndoStack((prev) => prev.slice(0, -1));
+    if (move.kind === "guest") {
+      applyAssignment(move.guestId, move.from);
+      return;
+    }
+    // Swapping the same two tables again puts everyone back.
+    onSwapTables(move.tableAId, move.tableBId);
+    setTableToSwap(null);
+    const tableA = tables.find((table) => table.id === move.tableAId);
+    const tableB = tables.find((table) => table.id === move.tableBId);
+    if (tableA && tableB) {
+      showSwapToast(
+        `ההחלפה בין ${formatTableLabel(tableA)} ל${formatTableLabel(tableB)} בוטלה`,
+        [tableA.id, tableB.id],
+      );
+    }
   }
 
   // Shared by drag-and-drop and tap-to-move. `targetId` is a droppable id.
