@@ -28,33 +28,26 @@ export default function AutoSeatingModal({
   onApplyAssignments,
 }: AutoSeatingModalProps) {
   const [instructions, setInstructions] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<AiSeatingResult | null>(null);
 
   if (!isOpen) return null;
 
   function handleClose() {
-    setIsGenerating(false);
     setResult(null);
     setInstructions("");
     onClose();
   }
 
+  // The planner is synchronous and fast, so it runs right away.
   function handleGenerate() {
-    setIsGenerating(true);
-    setResult(null);
-
-    setTimeout(() => {
-      const plan = generateMockSeatingPlan(
-        unseatedGuests,
-        tables,
-        allGuests,
-        instructions,
-      );
-      onApplyAssignments(plan.assignments);
-      setResult(plan);
-      setIsGenerating(false);
-    }, 1500);
+    const plan = generateMockSeatingPlan(
+      unseatedGuests,
+      tables,
+      allGuests,
+      instructions,
+    );
+    onApplyAssignments(plan.assignments);
+    setResult(plan);
   }
 
   return (
@@ -143,13 +136,6 @@ export default function AutoSeatingModal({
               >
                 סגירה
               </button>
-            </div>
-          ) : isGenerating ? (
-            <div className="flex flex-col items-center gap-4 py-10">
-              <div className="h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600 dark:border-indigo-500/20 dark:border-t-indigo-400" />
-              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                משבצים את האורחים לשולחנות...
-              </p>
             </div>
           ) : (
             <>
