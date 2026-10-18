@@ -11,7 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import AiSmartSeatingModal from "@/components/AiSmartSeatingModal";
+import AutoSeatingModal from "@/components/AutoSeatingModal";
 import CreateZoneForm from "@/components/CreateZoneForm";
 import FloorPlanUploader from "@/components/FloorPlanUploader";
 import GuestChip from "@/components/GuestChip";
@@ -113,7 +113,7 @@ export default function SeatingView({
   searchQuery,
 }: SeatingViewProps) {
   const [activeGuest, setActiveGuest] = useState<Guest | null>(null);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isAutoSeatingOpen, setIsAutoSeatingOpen] = useState(false);
   const [tableToSwap, setTableToSwap] = useState<string | null>(null);
   const [pickedGuestId, setPickedGuestId] = useState<string | null>(null);
   // Newest move last. Lives only in this screen: leaving the seating tab
@@ -405,15 +405,13 @@ export default function SeatingView({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setIsAiModalOpen(true)}
-            className="group relative isolate flex min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-l from-fuchsia-600 via-violet-600 to-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/40 transition hover:shadow-xl hover:shadow-violet-500/50 active:scale-[0.99]"
+            onClick={() => setIsAutoSeatingOpen(true)}
+            className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[0.99] active:bg-indigo-800"
           >
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 -z-10 animate-pulse bg-gradient-to-l from-fuchsia-500 via-violet-500 to-indigo-500 opacity-70 blur-xl"
-            />
-            <span>✨</span>
-            <span>שיבוץ חכם (AI)</span>
+            {/* Rule-based (see lib/aiSeatingMock), so it's deliberately not
+                styled like the GPT copilot: the sparkle and gradient mark
+                the one real AI tool. */}
+            שיבוץ אוטומטי
           </button>
 
           <button
@@ -442,9 +440,9 @@ export default function SeatingView({
           </button>
         </div>
 
-        <AiSmartSeatingModal
-          isOpen={isAiModalOpen}
-          onClose={() => setIsAiModalOpen(false)}
+        <AutoSeatingModal
+          isOpen={isAutoSeatingOpen}
+          onClose={() => setIsAutoSeatingOpen(false)}
           unseatedGuests={allUnseatedGuests}
           tables={tables}
           allGuests={guests}
