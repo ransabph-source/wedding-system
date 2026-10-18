@@ -404,10 +404,7 @@ export default function CouplePortalPage() {
   function handleUpdateBudgetItem(
     itemId: string,
     updates: Partial<
-      Pick<
-        BudgetItem,
-        "category" | "supplierName" | "estimatedCost" | "actualCost" | "paidSoFar"
-      >
+      Pick<BudgetItem, "category" | "supplierName" | "actualCost" | "paidSoFar">
     >,
   ) {
     setBudgetItems((prev) =>

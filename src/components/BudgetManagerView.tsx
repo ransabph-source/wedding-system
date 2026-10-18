@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type KeyboardEvent } from "react";
+import { BRANDED_BUDGET_ITEM_ID } from "@/lib/budgetCategories";
 import type { BudgetItem } from "@/types/budget";
 
 interface BudgetManagerViewProps {
@@ -10,10 +11,7 @@ interface BudgetManagerViewProps {
   onUpdateItem: (
     itemId: string,
     updates: Partial<
-      Pick<
-        BudgetItem,
-        "category" | "supplierName" | "estimatedCost" | "actualCost" | "paidSoFar"
-      >
+      Pick<BudgetItem, "category" | "supplierName" | "actualCost" | "paidSoFar">
     >,
   ) => void;
   onDeleteItem: (itemId: string) => void;
@@ -22,18 +20,14 @@ interface BudgetManagerViewProps {
   onAverageGiftAmountChange: (value: number) => void;
 }
 
-type EditableField =
-  | "category"
-  | "supplierName"
-  | "estimatedCost"
-  | "actualCost"
-  | "paidSoFar";
+type EditableField = "category" | "supplierName" | "actualCost" | "paidSoFar";
 
-const NUMBER_FIELDS: EditableField[] = [
-  "estimatedCost",
-  "actualCost",
-  "paidSoFar",
-];
+const NUMBER_FIELDS: EditableField[] = ["actualCost", "paidSoFar"];
+
+// The supplier on our own service row is always us.
+function isFieldLocked(item: BudgetItem, field: EditableField) {
+  return item.id === BRANDED_BUDGET_ITEM_ID && field === "supplierName";
+}
 
 interface EditingCell {
   itemId: string;
@@ -66,13 +60,12 @@ export default function BudgetManagerView({
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [draftValue, setDraftValue] = useState("");
 
-  const totalBudget = items.reduce((sum, item) => sum + item.estimatedCost, 0);
   const totalActualCost = items.reduce((sum, item) => sum + item.actualCost, 0);
   const totalPaid = items.reduce((sum, item) => sum + item.paidSoFar, 0);
   const remainingBalance = totalActualCost - totalPaid;
 
   const estimatedTotalRevenue = averageGiftAmount * confirmedGuestsCount;
-  const cashFlowStatus = estimatedTotalRevenue - totalBudget;
+  const cashFlowStatus = estimatedTotalRevenue - totalActualCost;
   const isCashFlowPositive = cashFlowStatus >= 0;
 
   const costPerGuest =
@@ -97,7 +90,6 @@ export default function BudgetManagerView({
       id: crypto.randomUUID(),
       category: "",
       supplierName: "",
-      estimatedCost: 0,
       actualCost: 0,
       paidSoFar: 0,
     });
@@ -149,7 +141,7 @@ export default function BudgetManagerView({
     const isNumberField = NUMBER_FIELDS.includes(field);
     const rawValue = item[field];
 
-    if (readOnly) {
+    if (readOnly || isFieldLocked(item, field)) {
       return (
         <span className="block w-full px-1.5 py-1 text-right">
           {isNumberField
@@ -195,7 +187,7 @@ export default function BudgetManagerView({
     <div className="flex flex-col gap-3">
       <div className="overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-right">
+          <table className="w-full min-w-[34rem] text-right">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-800/50">
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
@@ -203,9 +195,6 @@ export default function BudgetManagerView({
                 </th>
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                   שם ספק
-                </th>
-                <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                  עלות משוערת
                 </th>
                 <th className="px-3 py-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                   עלות בפועל
@@ -222,7 +211,7 @@ export default function BudgetManagerView({
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={5}
                     className="px-6 py-10 text-center text-zinc-400 dark:text-zinc-500"
                   >
                     עדיין לא נוספו הוצאות
@@ -239,9 +228,6 @@ export default function BudgetManagerView({
                     </td>
                     <td className="px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100">
                       {renderEditableCell(item, "supplierName", "הוספת ספק")}
-                    </td>
-                    <td className="px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100">
-                      {renderEditableCell(item, "estimatedCost", "")}
                     </td>
                     <td className="px-2.5 py-1 text-sm text-zinc-800 dark:text-zinc-100">
                       {renderEditableCell(item, "actualCost", "")}
@@ -386,26 +372,12 @@ export default function BudgetManagerView({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="flex flex-col gap-1 rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
-          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            סה&quot;כ תקציב
-          </p>
-          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-            {formatCurrency(totalBudget)}
-          </p>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1 rounded-xl bg-white p-3 shadow-md ring-1 ring-black/5 dark:bg-zinc-900">
           <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             סה&quot;כ עלות בפועל
           </p>
-          <p
-            className={`text-lg font-bold ${
-              totalActualCost > totalBudget
-                ? "text-rose-600 dark:text-rose-400"
-                : "text-zinc-900 dark:text-zinc-50"
-            }`}
-          >
+          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
             {formatCurrency(totalActualCost)}
           </p>
         </div>
