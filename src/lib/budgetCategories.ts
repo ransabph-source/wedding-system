@@ -6,7 +6,7 @@ export const BRANDED_BUDGET_ITEM_ID = "budget-rsvp-seating";
 export const BRANDED_SUPPLIER_NAME = "I R Sidurim";
 const BRANDED_BUDGET_ITEM: BudgetItem = {
   id: BRANDED_BUDGET_ITEM_ID,
-  category: "ספק אישורי הגעה וסידור הושבה",
+  category: "אישורי הגעה וסידור הושבה",
   supplierName: BRANDED_SUPPLIER_NAME,
   actualCost: 0,
   paidSoFar: 0,
