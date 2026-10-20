@@ -6,14 +6,20 @@ import { getEvent } from "@/lib/db/events";
 import { guestFromRow, type GuestRow } from "@/lib/db/mappers";
 import { normalizePhone } from "@/lib/guestRsvp";
 import { createRateLimiter } from "@/lib/rateLimit";
+import {
+  configuredAppUrl,
+  ID_CHUNK_SIZE,
+  markAutomationInvited,
+  MIN_PHONE_DIGITS,
+  rsvpTemplate,
+  SEND_CONCURRENCY,
+  sendRsvpTemplate,
+  stampLastContacted,
+} from "@/lib/rsvpMessaging";
 import { getSupabase } from "@/lib/supabase/server";
-import { isWhatsAppConfigured, sendWhatsAppTemplate } from "@/lib/whatsapp";
-import type { EventRecord } from "@/types/event";
 
-// Sends RSVP invitations as a WhatsApp message template (WHATSAPP_RSVP_TEMPLATE,
-// approved in WhatsApp Manager) whose body takes {{1}} guest name, {{2}} couple
-// names, {{3}} event date, {{4}} venue, {{5}} the guest's RSVP link. Meta
-// rejects the send unless exactly these 5 are passed. Messaging is a managed
+// Sends RSVP invitations as the WhatsApp message template described in
+// lib/rsvpMessaging (WHATSAPP_RSVP_TEMPLATE). Messaging is a managed
 // service, so only admins may trigger it (couples can't, even for their own
 // event), and recipients are always looked up from the database, never taken
 // from the client.
@@ -38,12 +44,6 @@ export type SendMessagesResult =
     };
 
 const MAX_BATCH_SIZE = 2000;
-// PostgREST puts filters in the URL, so large ID lists are split.
-const ID_CHUNK_SIZE = 100;
-// WhatsApp takes one recipient per request; this many run at once.
-const SEND_CONCURRENCY = 10;
-// Shorter inputs can't be a real phone number.
-const MIN_PHONE_DIGITS = 9;
 
 // Test messages go to any number the user types, so they're capped per user.
 const testSends = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
@@ -59,20 +59,6 @@ interface Recipient {
   rsvpUrl: string;
 }
 
-interface RsvpTemplate {
-  name: string;
-  language: string;
-}
-
-function rsvpTemplate(): RsvpTemplate | null {
-  const name = process.env.WHATSAPP_RSVP_TEMPLATE?.trim();
-  if (!name || !isWhatsAppConfigured()) return null;
-  return {
-    name,
-    language: process.env.WHATSAPP_RSVP_TEMPLATE_LANGUAGE?.trim() || "he",
-  };
-}
-
 // Server actions can be called directly by anyone signed in, so this check,
 // not the admin layout, is what keeps couples and staff out.
 async function authorize(): Promise<string | null> {
@@ -83,58 +69,14 @@ async function authorize(): Promise<string | null> {
 // Links must open for guests on their phones, so production should set
 // APP_URL; otherwise this falls back to the address the dashboard is on.
 async function appBaseUrl(): Promise<string> {
-  const configured = process.env.APP_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, "");
+  const configured = configuredAppUrl();
+  if (configured) return configured;
   const h = await headers();
   const origin = h.get("origin");
   if (origin) return origin;
   const host = h.get("x-forwarded-host") ?? h.get("host");
   const proto = h.get("x-forwarded-proto") ?? "https";
   return `${proto}://${host}`;
-}
-
-// eventDate is a plain YYYY-MM-DD string; guests read DD/MM/YYYY.
-function formatTemplateDate(eventDate: string): string {
-  const [year, month, day] = eventDate.split("-");
-  return year && month && day ? `${day}/${month}/${year}` : eventDate;
-}
-
-// Meta rejects empty template parameters, so blank fields get a placeholder.
-function templateParam(value: string): string {
-  return value.trim() || "-";
-}
-
-function sendRsvpTemplate(
-  template: RsvpTemplate,
-  event: EventRecord,
-  recipient: { name: string; phone: string; rsvpUrl: string },
-) {
-  return sendWhatsAppTemplate(
-    recipient.phone,
-    template.name,
-    template.language,
-    [
-      recipient.name,
-      event.coupleNames,
-      formatTemplateDate(event.eventDate),
-      event.venue,
-      recipient.rsvpUrl,
-    ].map(templateParam),
-  );
-}
-
-// Records when the guests were last messaged. The messages are already out
-// by now, so a failure here is logged rather than reported as a failed send.
-async function stampLastContacted(eventId: string, guestIds: string[]) {
-  const sentAt = new Date().toISOString();
-  for (let i = 0; i < guestIds.length; i += ID_CHUNK_SIZE) {
-    const { error } = await getSupabase()
-      .from("guests")
-      .update({ last_contacted_at: sentAt })
-      .eq("event_id", eventId)
-      .in("id", guestIds.slice(i, i + ID_CHUNK_SIZE));
-    if (error) console.error("Failed to stamp last_contacted_at", error);
-  }
 }
 
 export async function sendRsvpMessages(
@@ -212,7 +154,12 @@ export async function sendRsvpMessages(
 
   // Replies are matched to guests by last_contacted_at, so only guests who
   // were actually sent a message are stamped.
-  if (sentIds.length > 0) await stampLastContacted(eventId, sentIds);
+  // They also count as invited, so the automation sends them reminders
+  // rather than a second invitation.
+  if (sentIds.length > 0) {
+    await stampLastContacted(eventId, sentIds);
+    await markAutomationInvited(eventId, sentIds);
+  }
   if (sentIds.length === 0 && failed.length > 0) {
     return { ok: false, reason: "send_failed" };
   }
