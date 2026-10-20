@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { runRsvpAutomation } from "@/lib/rsvpAutomation";
+import { israelDate, runRsvpAutomation } from "@/lib/rsvpAutomation";
+import { isRestDay } from "@/lib/restDays";
 
 // Daily RSVP automation (see lib/rsvpAutomation), scheduled in vercel.json.
 // Vercel Cron calls this with "Authorization: Bearer <CRON_SECRET>"; anything
@@ -22,6 +23,15 @@ export async function GET(request: Request) {
   }
   if (!isAuthorized(request.headers.get("authorization"), secret)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Nothing runs on Fridays, Saturdays, holidays and their eves: no guest
+  // messages and no admin reports. The guests held back go out on the next
+  // working day.
+  const today = israelDate(new Date());
+  if (isRestDay(today)) {
+    console.log("Rest day - skipping execution");
+    return Response.json({ status: "rest_day", date: today });
   }
 
   try {

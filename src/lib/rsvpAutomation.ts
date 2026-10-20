@@ -26,10 +26,15 @@ import type { Guest } from "@/types/guest";
 //   T-15, T-14, T-13  call phase: no messages; the admins phone the
 //         remaining guests and update their status after each round
 //
-// A missed day is caught up later in the same window (e.g. guests added at
-// T-23 are invited that day). Each guest moves one step per run, at least
-// MIN_HOURS_BETWEEN_MESSAGES after they were last messaged, and their
-// rsvp_automation_stage is raised before sending, so no step goes out twice.
+// No guest is messaged on Fridays, Saturdays, Jewish holidays or their eves
+// (see lib/restDays); the cron route skips those days entirely. Guests are
+// picked by which message they're due, not by an exact day, so whatever a
+// rest day held back goes out on the next working day: a guest not yet
+// invited gets the invitation, and one who missed a reminder (or both) gets
+// a single reminder that catches them up. Nothing is sent after T-16. Each
+// guest gets one message per run, at least MIN_HOURS_BETWEEN_MESSAGES after
+// they were last messaged, and their rsvp_automation_stage is raised before
+// sending, so no message goes out twice.
 //
 // The admins (ADMIN_WHATSAPP_NUMBER) get a WhatsApp report before and after
 // the sends, plus one per event in its call phase with the guests still
@@ -60,7 +65,9 @@ const GUEST_COLUMNS =
 
 interface PlannedSend {
   guest: AutomationGuestRow;
-  stage: Stage;
+  // The guest's stage now, and the one this message brings them to.
+  from: number;
+  to: Stage;
 }
 
 interface CallPhaseReport {
@@ -196,7 +203,11 @@ async function countPendingGuests(eventId: string): Promise<number> {
   return count ?? 0;
 }
 
-function planSends(guests: AutomationGuestRow[], now: Date): PlannedSend[] {
+function planSends(
+  guests: AutomationGuestRow[],
+  target: Stage,
+  now: Date,
+): PlannedSend[] {
   const contactedBefore =
     now.getTime() - MIN_HOURS_BETWEEN_MESSAGES * 3_600_000;
   return guests
@@ -209,7 +220,9 @@ function planSends(guests: AutomationGuestRow[], now: Date): PlannedSend[] {
     )
     .map((guest) => ({
       guest,
-      stage: (guest.rsvp_automation_stage + 1) as Stage,
+      from: guest.rsvp_automation_stage,
+      // Uninvited guests get the invitation first; reminders skip ahead.
+      to: guest.rsvp_automation_stage === 0 ? 1 : target,
     }));
 }
 
@@ -217,16 +230,17 @@ function planSends(guests: AutomationGuestRow[], now: Date): PlannedSend[] {
 // were still at the previous stage, i.e. not taken by an overlapping run.
 async function claimGuests(
   eventId: string,
-  stage: Stage,
+  from: number,
+  to: Stage,
   guestIds: string[],
 ): Promise<Set<string>> {
   const claimed = new Set<string>();
   for (let i = 0; i < guestIds.length; i += ID_CHUNK_SIZE) {
     const { data, error } = await getSupabase()
       .from("guests")
-      .update({ rsvp_automation_stage: stage })
+      .update({ rsvp_automation_stage: to })
       .eq("event_id", eventId)
-      .eq("rsvp_automation_stage", stage - 1)
+      .eq("rsvp_automation_stage", from)
       .in("id", guestIds.slice(i, i + ID_CHUNK_SIZE))
       .select("id");
     if (error) throw error;
@@ -235,14 +249,20 @@ async function claimGuests(
   return claimed;
 }
 
-// Puts guests whose message failed back a stage, so a later run retries.
-async function releaseGuests(eventId: string, stage: Stage, guestIds: string[]) {
+// Puts guests whose message failed back where they were, so a later run
+// retries.
+async function releaseGuests(
+  eventId: string,
+  from: number,
+  to: Stage,
+  guestIds: string[],
+) {
   for (let i = 0; i < guestIds.length; i += ID_CHUNK_SIZE) {
     const { error } = await getSupabase()
       .from("guests")
-      .update({ rsvp_automation_stage: stage - 1 })
+      .update({ rsvp_automation_stage: from })
       .eq("event_id", eventId)
-      .eq("rsvp_automation_stage", stage)
+      .eq("rsvp_automation_stage", to)
       .in("id", guestIds.slice(i, i + ID_CHUNK_SIZE));
     if (error) console.error("Failed to release RSVP automation guests", error);
   }
@@ -255,10 +275,14 @@ async function sendEventMessages(
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
-  for (const stage of [1, 2, 3] as const) {
-    const batch = sends.filter((send) => send.stage === stage);
-    if (batch.length === 0) continue;
-    const template = stage === 1 ? rsvpTemplate() : rsvpReminderTemplate();
+  const steps = new Map<string, PlannedSend[]>();
+  for (const send of sends) {
+    const key = `${send.from}-${send.to}`;
+    steps.set(key, [...(steps.get(key) ?? []), send]);
+  }
+  for (const batch of steps.values()) {
+    const { from, to } = batch[0];
+    const template = to === 1 ? rsvpTemplate() : rsvpReminderTemplate();
     if (!template) {
       failed += batch.length;
       continue;
@@ -266,7 +290,8 @@ async function sendEventMessages(
 
     const claimed = await claimGuests(
       event.id,
-      stage,
+      from,
+      to,
       batch.map((send) => send.guest.id),
     );
     const recipients = batch.filter((send) => claimed.has(send.guest.id));
@@ -293,7 +318,7 @@ async function sendEventMessages(
     }
 
     if (sentIds.length > 0) await stampLastContacted(event.id, sentIds);
-    if (retryIds.length > 0) await releaseGuests(event.id, stage, retryIds);
+    if (retryIds.length > 0) await releaseGuests(event.id, from, to, retryIds);
     sent += sentIds.length;
     failed += recipients.length - sentIds.length;
   }
@@ -342,9 +367,10 @@ export async function runRsvpAutomation(
   for (const event of await fetchEvents(today)) {
     const daysLeft = daysBetween(today, event.eventDate);
     const stage = targetStage(daysLeft);
-    if (stage > 0) {
+    if (stage !== 0) {
       const sends = planSends(
-        await fetchPendingGuests(event.id, stage as Stage),
+        await fetchPendingGuests(event.id, stage),
+        stage,
         now,
       );
       if (sends.length > 0) plans.push({ event, sends });
