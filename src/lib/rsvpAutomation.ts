@@ -2,6 +2,7 @@ import "server-only";
 import { eventFromRow, type EventRow, type GuestRow } from "@/lib/db/mappers";
 import { isGuestRsvpOpen } from "@/lib/eventPhaseRules";
 import { normalizePhone } from "@/lib/guestRsvp";
+import { nextWorkingDay } from "@/lib/restDays";
 import {
   configuredAppUrl,
   ID_CHUNK_SIZE,
@@ -18,23 +19,28 @@ import type { EventRecord } from "@/types/event";
 import type { Guest } from "@/types/guest";
 
 // The daily RSVP automation, run by Vercel Cron through
-// /api/cron/rsvp-automation. Counted back from the event date (Israel time):
+// /api/cron/rsvp-automation. Planned from the event date (Israel time):
 //
 //   T-24  invitation to every guest who hasn't answered
 //   T-21  first reminder to those still pending
 //   T-18  second reminder
-//   T-15, T-14, T-13  call phase: no messages; the admins phone the
-//         remaining guests and update their status after each round
+//   T-15  start of the call phase: 3 working days with no messages; the
+//         admins phone the remaining guests and update their status after
+//         each round
 //
-// No guest is messaged on Fridays, Saturdays, Jewish holidays or their eves
-// (see lib/restDays); the cron route skips those days entirely. Guests are
-// picked by which message they're due, not by an exact day, so whatever a
-// rest day held back goes out on the next working day: a guest not yet
-// invited gets the invitation, and one who missed a reminder (or both) gets
-// a single reminder that catches them up. Nothing is sent after T-16. Each
-// guest gets one message per run, at least MIN_HOURS_BETWEEN_MESSAGES after
-// they were last messaged, and their rsvp_automation_stage is raised before
-// sending, so no message goes out twice.
+// Nothing runs on rest days (Fridays, Saturdays, holidays and their eves,
+// Yom HaShoah, Yom HaZikaron; see lib/restDays): the cron route exits before
+// any message or report. The timeline pauses rather than losing a step (see
+// campaignSchedule): a step due on a rest day moves to the next working day
+// and every later step moves with it, keeping the days between messages,
+// and the call phase counts only working days.
+//
+// Guests move up exactly one step per message, so none is skipped: a guest
+// who fell behind (e.g. after a failed send) gets the next message in order.
+// Each guest gets at most one message per run, at least
+// MIN_HOURS_BETWEEN_MESSAGES after they were last messaged, and their
+// rsvp_automation_stage is raised before sending, so no message goes out
+// twice. Messages stop when the call phase starts.
 //
 // The admins (ADMIN_WHATSAPP_NUMBER) get a WhatsApp report before and after
 // the sends, plus one per event in its call phase with the guests still
@@ -43,7 +49,8 @@ import type { Guest } from "@/types/guest";
 const TIME_ZONE = "Asia/Jerusalem";
 const DAY_MS = 86_400_000;
 const INVITATION_DAYS_BEFORE = 24;
-const CALL_PHASE_FIRST_DAY = 15;
+// Between the invitation, the reminders and the start of the call phase.
+const DAYS_BETWEEN_STEPS = 3;
 const CALL_PHASE_DAYS = 3;
 // Less than the 3 days between steps, so cron timing jitter never skips one.
 const MIN_HOURS_BETWEEN_MESSAGES = 36;
@@ -104,26 +111,46 @@ function addDays(date: string, days: number): string {
     .slice(0, 10);
 }
 
-function daysBetween(from: string, to: string): number {
-  return Math.round(
-    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS,
-  );
+export interface CampaignSchedule {
+  // The day each message goes out: invitation, first and second reminder.
+  stages: [string, string, string];
+  // The call phase's working days, all before the event.
+  callDays: string[];
 }
 
-// The step guests should have reached with this many days left, or 0
-// outside the messaging days.
-export function targetStage(daysLeft: number): 0 | Stage {
-  if (daysLeft > INVITATION_DAYS_BEFORE) return 0;
-  if (daysLeft > 21) return 1;
-  if (daysLeft > 18) return 2;
-  if (daysLeft > CALL_PHASE_FIRST_DAY) return 3;
-  return 0;
+// An event's timeline with rest days paused over. Each step goes out on the
+// first working day at least DAYS_BETWEEN_STEPS after the one before, so a
+// step pushed back by a rest day pushes the later ones back too; with no
+// rest days in the way this is T-24, T-21, T-18 and T-15..T-13. The call
+// phase then takes the next CALL_PHASE_DAYS working days, stopping short
+// only if the event comes first.
+export function campaignSchedule(eventDate: string): CampaignSchedule {
+  const stages: string[] = [];
+  let day = nextWorkingDay(addDays(eventDate, -INVITATION_DAYS_BEFORE));
+  for (let stage = 1; stage <= 3; stage++) {
+    stages.push(day);
+    day = nextWorkingDay(addDays(day, DAYS_BETWEEN_STEPS));
+  }
+  const callDays: string[] = [];
+  while (callDays.length < CALL_PHASE_DAYS && day < eventDate) {
+    callDays.push(day);
+    day = nextWorkingDay(addDays(day, 1));
+  }
+  return { stages: stages as CampaignSchedule["stages"], callDays };
 }
 
-// 1, 2 or 3 during the call phase, otherwise null.
-export function callPhaseDay(daysLeft: number): number | null {
-  const day = CALL_PHASE_FIRST_DAY - daysLeft + 1;
-  return day >= 1 && day <= CALL_PHASE_DAYS ? day : null;
+// The step guests should have reached by today, or 0 before the invitation
+// and once the call phase has started.
+function targetStage(schedule: CampaignSchedule, today: string): 0 | Stage {
+  const callStart = schedule.callDays[0];
+  if (callStart !== undefined && today >= callStart) return 0;
+  return schedule.stages.filter((day) => day <= today).length as 0 | Stage;
+}
+
+// 1..CALL_PHASE_DAYS on a call phase day, otherwise null.
+function callPhaseDay(schedule: CampaignSchedule, today: string): number | null {
+  const index = schedule.callDays.indexOf(today);
+  return index === -1 ? null : index + 1;
 }
 
 // Marks today's run as started. False if it already ran (or is running)
@@ -162,7 +189,8 @@ async function fetchEvents(today: string): Promise<EventRecord[]> {
   const { data, error } = await getSupabase()
     .from("events")
     .select("*")
-    .gte("event_date", addDays(today, CALL_PHASE_FIRST_DAY - CALL_PHASE_DAYS + 1))
+    // A paused timeline can run on until the eve of the event.
+    .gt("event_date", today)
     .lte("event_date", addDays(today, INVITATION_DAYS_BEFORE))
     .order("event_date");
   if (error) throw error;
@@ -203,11 +231,7 @@ async function countPendingGuests(eventId: string): Promise<number> {
   return count ?? 0;
 }
 
-function planSends(
-  guests: AutomationGuestRow[],
-  target: Stage,
-  now: Date,
-): PlannedSend[] {
+function planSends(guests: AutomationGuestRow[], now: Date): PlannedSend[] {
   const contactedBefore =
     now.getTime() - MIN_HOURS_BETWEEN_MESSAGES * 3_600_000;
   return guests
@@ -221,8 +245,9 @@ function planSends(
     .map((guest) => ({
       guest,
       from: guest.rsvp_automation_stage,
-      // Uninvited guests get the invitation first; reminders skip ahead.
-      to: guest.rsvp_automation_stage === 0 ? 1 : target,
+      // One step at a time, so a guest who fell behind still gets every
+      // message in order.
+      to: (guest.rsvp_automation_stage + 1) as Stage,
     }));
 }
 
@@ -365,17 +390,13 @@ export async function runRsvpAutomation(
   const plans: { event: EventRecord; sends: PlannedSend[] }[] = [];
   const callPhase: { event: EventRecord; day: number }[] = [];
   for (const event of await fetchEvents(today)) {
-    const daysLeft = daysBetween(today, event.eventDate);
-    const stage = targetStage(daysLeft);
+    const schedule = campaignSchedule(event.eventDate);
+    const stage = targetStage(schedule, today);
     if (stage !== 0) {
-      const sends = planSends(
-        await fetchPendingGuests(event.id, stage),
-        stage,
-        now,
-      );
+      const sends = planSends(await fetchPendingGuests(event.id, stage), now);
       if (sends.length > 0) plans.push({ event, sends });
     }
-    const day = callPhaseDay(daysLeft);
+    const day = callPhaseDay(schedule, today);
     if (day !== null) callPhase.push({ event, day });
   }
 

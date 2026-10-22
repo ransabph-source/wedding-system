@@ -25,9 +25,10 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Nothing runs on Fridays, Saturdays, holidays and their eves: no guest
-  // messages and no admin reports. The guests held back go out on the next
-  // working day.
+  // Nothing runs on rest days (Fridays, Saturdays, holidays and their eves,
+  // Yom HaShoah, Yom HaZikaron): no guest messages and no admin reports.
+  // Each event's timeline pauses over them and resumes on the next working
+  // day, so no message or call day is lost.
   const today = israelDate(new Date());
   if (isRestDay(today)) {
     console.log("Rest day - skipping execution");
