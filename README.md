@@ -38,7 +38,10 @@ One-time setup:
    `supabase/migrations/20261009000000_guest_last_contacted.sql` (when each
    guest was last sent an RSVP message), then
    `supabase/migrations/20261010000000_ai_seating.sql` (the AI seating
-   assistant's usage quota and lock), then `supabase/seed.sql`
+   assistant's usage quota and lock), then
+   `supabase/migrations/20261020000000_rsvp_automation.sql` and
+   `supabase/migrations/20261022000000_rsvp_automation_hourly.sql` (the RSVP
+   automation's progress and run log), then `supabase/seed.sql`
    (optional demo data).
    Then enable the role hook: **Authentication → Hooks → Customize Access
    Token (JWT) Claims** → Postgres function `public.custom_access_token_hook`.

@@ -2,7 +2,6 @@ import "server-only";
 import { eventFromRow, type EventRow, type GuestRow } from "@/lib/db/mappers";
 import { isGuestRsvpOpen } from "@/lib/eventPhaseRules";
 import { normalizePhone } from "@/lib/guestRsvp";
-import { nextWorkingDay } from "@/lib/restDays";
 import {
   configuredAppUrl,
   ID_CHUNK_SIZE,
@@ -13,45 +12,46 @@ import {
   sendRsvpTemplate,
   stampLastContacted,
 } from "@/lib/rsvpMessaging";
+import {
+  addDays,
+  CALL_PHASE_DAYS,
+  CALL_REPORT_HOUR,
+  campaignSchedule,
+  DEADLINE_DAYS_BEFORE,
+  israelDateTime,
+  MAX_INVITATION_DAYS_BEFORE,
+  STAGE_SEND_HOURS,
+  type CampaignSchedule,
+  type Stage,
+} from "@/lib/rsvpSchedule";
 import { getSupabase } from "@/lib/supabase/server";
 import { sendWhatsAppTemplate, sendWhatsAppText } from "@/lib/whatsapp";
 import type { EventRecord } from "@/types/event";
 import type { Guest } from "@/types/guest";
 
-// The daily RSVP automation, run by Vercel Cron through
-// /api/cron/rsvp-automation. Planned from the event date (Israel time):
+// The RSVP automation, run hourly by Vercel Cron through
+// /api/cron/rsvp-automation. Each event follows the timeline in
+// lib/rsvpSchedule: the invitation, two reminders and three call phase days,
+// all on working days and all done by T-7. Each message goes out at its own
+// Israel hour (STAGE_SEND_HOURS): a run at 10:00 sends the invitations due,
+// 15:00 the first reminders and 18:00 the second ones; runs at other hours
+// do nothing. During the call phase there are no messages; the admins phone
+// the remaining guests and update their status after each round.
 //
-//   T-24  invitation to every guest who hasn't answered
-//   T-21  first reminder to those still pending
-//   T-18  second reminder
-//   T-15  start of the call phase: 3 working days with no messages; the
-//         admins phone the remaining guests and update their status after
-//         each round
-//
-// Nothing runs on rest days (Fridays, Saturdays, holidays and their eves,
-// Yom HaShoah, Yom HaZikaron; see lib/restDays): the cron route exits before
-// any message or report. The timeline pauses rather than losing a step (see
-// campaignSchedule): a step due on a rest day moves to the next working day
-// and every later step moves with it, keeping the days between messages,
-// and the call phase counts only working days.
+// Nothing runs on rest days (see lib/restDays): the cron route exits before
+// any message or report, and the timeline was planned around them.
 //
 // Guests move up exactly one step per message, so none is skipped: a guest
-// who fell behind (e.g. after a failed send) gets the next message in order.
-// Each guest gets at most one message per run, at least
-// MIN_HOURS_BETWEEN_MESSAGES after they were last messaged, and their
+// who fell behind (e.g. after a failed send) gets the next message in order,
+// at that message's hour. Each guest gets at most one message per run, at
+// least MIN_HOURS_BETWEEN_MESSAGES after they were last messaged, and their
 // rsvp_automation_stage is raised before sending, so no message goes out
 // twice. Messages stop when the call phase starts.
 //
 // The admins (ADMIN_WHATSAPP_NUMBER) get a WhatsApp report before and after
-// the sends, plus one per event in its call phase with the guests still
-// pending that day.
+// each run that has messages to send, plus one at CALL_REPORT_HOUR per event
+// in its call phase with the guests still pending that day.
 
-const TIME_ZONE = "Asia/Jerusalem";
-const DAY_MS = 86_400_000;
-const INVITATION_DAYS_BEFORE = 24;
-// Between the invitation, the reminders and the start of the call phase.
-const DAYS_BETWEEN_STEPS = 3;
-const CALL_PHASE_DAYS = 3;
 // Less than the 3 days between steps, so cron timing jitter never skips one.
 const MIN_HOURS_BETWEEN_MESSAGES = 36;
 // Supabase returns at most this many rows per request.
@@ -59,8 +59,11 @@ const PAGE_SIZE = 1000;
 // Longer than the route's maxDuration, so a live run is never taken over.
 const STALE_RUN_MS = 15 * 60_000;
 const PENDING_STATUSES: Guest["rsvpStatus"][] = ["pending_whatsapp", "needs_call"];
-
-type Stage = 1 | 2 | 3;
+const STAGE_NAMES: Record<Stage, string> = {
+  1: "invitation",
+  2: "first reminder",
+  3: "second reminder",
+};
 
 type AutomationGuestRow = Pick<
   GuestRow,
@@ -84,81 +87,55 @@ interface CallPhaseReport {
 }
 
 export type RsvpAutomationSummary =
-  | { status: "already_ran"; date: string }
+  | { status: "idle" | "already_ran"; date: string; hour: number }
   | {
       status: "done";
       date: string;
+      hour: number;
       planned: number;
       sent: number;
       failed: number;
       callPhaseEvents: number;
     };
 
-// Today's date in Israel as YYYY-MM-DD.
-export function israelDate(now: Date): string {
-  // en-CA formats dates as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
-}
-
-function addDays(date: string, days: number): string {
-  return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS)
-    .toISOString()
-    .slice(0, 10);
-}
-
-export interface CampaignSchedule {
-  // The day each message goes out: invitation, first and second reminder.
-  stages: [string, string, string];
-  // The call phase's working days, all before the event.
-  callDays: string[];
-}
-
-// An event's timeline with rest days paused over. Each step goes out on the
-// first working day at least DAYS_BETWEEN_STEPS after the one before, so a
-// step pushed back by a rest day pushes the later ones back too; with no
-// rest days in the way this is T-24, T-21, T-18 and T-15..T-13. The call
-// phase then takes the next CALL_PHASE_DAYS working days, stopping short
-// only if the event comes first.
-export function campaignSchedule(eventDate: string): CampaignSchedule {
-  const stages: string[] = [];
-  let day = nextWorkingDay(addDays(eventDate, -INVITATION_DAYS_BEFORE));
-  for (let stage = 1; stage <= 3; stage++) {
-    stages.push(day);
-    day = nextWorkingDay(addDays(day, DAYS_BETWEEN_STEPS));
+// The message that goes out at this Israel hour, if any.
+export function stageSentAt(hour: number): Stage | null {
+  for (const stage of [1, 2, 3] as const) {
+    if (STAGE_SEND_HOURS[stage] === hour) return stage;
   }
-  const callDays: string[] = [];
-  while (callDays.length < CALL_PHASE_DAYS && day < eventDate) {
-    callDays.push(day);
-    day = nextWorkingDay(addDays(day, 1));
-  }
-  return { stages: stages as CampaignSchedule["stages"], callDays };
+  return null;
 }
 
-// The step guests should have reached by today, or 0 before the invitation
-// and once the call phase has started.
-function targetStage(schedule: CampaignSchedule, today: string): 0 | Stage {
-  const callStart = schedule.callDays[0];
-  if (callStart !== undefined && today >= callStart) return 0;
-  return schedule.stages.filter((day) => day <= today).length as 0 | Stage;
+// Whether this hour has anything to do: a message or the call reports.
+export function isAutomationHour(hour: number): boolean {
+  return stageSentAt(hour) !== null || hour === CALL_REPORT_HOUR;
+}
+
+// Whether guests may get this message today: it's due and the call phase
+// hasn't started.
+function isStageDue(
+  schedule: CampaignSchedule,
+  stage: Stage,
+  today: string,
+): boolean {
+  return (
+    schedule.stages[stage - 1].date <= today &&
+    today < schedule.callDays[0].date
+  );
 }
 
 // 1..CALL_PHASE_DAYS on a call phase day, otherwise null.
 function callPhaseDay(schedule: CampaignSchedule, today: string): number | null {
-  const index = schedule.callDays.indexOf(today);
+  const index = schedule.callDays.findIndex((day) => day.date === today);
   return index === -1 ? null : index + 1;
 }
 
-// Marks today's run as started. False if it already ran (or is running)
-// today, e.g. when Vercel delivers the cron call twice.
-async function claimRun(runDate: string): Promise<boolean> {
+// Marks this hour's run as started. False if it already ran (or is running),
+// e.g. when Vercel delivers the cron call twice.
+async function claimRun(runDate: string, runHour: number): Promise<boolean> {
   const { error } = await getSupabase()
     .from("rsvp_automation_runs")
-    .insert({ run_date: runDate });
+    .insert({ run_date: runDate, run_hour: runHour });
   if (!error) return true;
   if (error.code !== "23505") throw error;
 
@@ -167,6 +144,7 @@ async function claimRun(runDate: string): Promise<boolean> {
     .from("rsvp_automation_runs")
     .update({ started_at: new Date().toISOString() })
     .eq("run_date", runDate)
+    .eq("run_hour", runHour)
     .is("finished_at", null)
     .lt("started_at", new Date(Date.now() - STALE_RUN_MS).toISOString())
     .select("run_date");
@@ -176,12 +154,14 @@ async function claimRun(runDate: string): Promise<boolean> {
 
 async function finishRun(
   runDate: string,
+  runHour: number,
   totals: { planned: number; sent: number; failed: number },
 ) {
   const { error } = await getSupabase()
     .from("rsvp_automation_runs")
     .update({ finished_at: new Date().toISOString(), ...totals })
-    .eq("run_date", runDate);
+    .eq("run_date", runDate)
+    .eq("run_hour", runHour);
   if (error) console.error("Failed to record the RSVP automation run", error);
 }
 
@@ -189,9 +169,9 @@ async function fetchEvents(today: string): Promise<EventRecord[]> {
   const { data, error } = await getSupabase()
     .from("events")
     .select("*")
-    // A paused timeline can run on until the eve of the event.
-    .gt("event_date", today)
-    .lte("event_date", addDays(today, INVITATION_DAYS_BEFORE))
+    // Every step falls between T-MAX_INVITATION_DAYS_BEFORE and the red line.
+    .gte("event_date", addDays(today, DEADLINE_DAYS_BEFORE))
+    .lte("event_date", addDays(today, MAX_INVITATION_DAYS_BEFORE))
     .order("event_date");
   if (error) throw error;
   return (data as EventRow[])
@@ -199,9 +179,10 @@ async function fetchEvents(today: string): Promise<EventRecord[]> {
     .filter((event) => isGuestRsvpOpen(event.phase));
 }
 
+// The guests still waiting to answer who are one step before stage.
 async function fetchPendingGuests(
   eventId: string,
-  belowStage: Stage,
+  stage: Stage,
 ): Promise<AutomationGuestRow[]> {
   const rows: AutomationGuestRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -210,7 +191,7 @@ async function fetchPendingGuests(
       .select(GUEST_COLUMNS)
       .eq("event_id", eventId)
       .in("rsvp_status", PENDING_STATUSES)
-      .lt("rsvp_automation_stage", belowStage)
+      .eq("rsvp_automation_stage", stage - 1)
       .order("seq")
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw error;
@@ -384,51 +365,54 @@ async function notifyAdmins(text: string) {
 export async function runRsvpAutomation(
   now = new Date(),
 ): Promise<RsvpAutomationSummary> {
-  const today = israelDate(now);
-  if (!(await claimRun(today))) return { status: "already_ran", date: today };
+  const { date: today, hour } = israelDateTime(now);
+  const stage = stageSentAt(hour);
+  const callReports = hour === CALL_REPORT_HOUR;
+  if (!isAutomationHour(hour)) return { status: "idle", date: today, hour };
+  if (!(await claimRun(today, hour))) {
+    return { status: "already_ran", date: today, hour };
+  }
 
   const plans: { event: EventRecord; sends: PlannedSend[] }[] = [];
   const callPhase: { event: EventRecord; day: number }[] = [];
   for (const event of await fetchEvents(today)) {
     const schedule = campaignSchedule(event.eventDate);
-    const stage = targetStage(schedule, today);
-    if (stage !== 0) {
+    if (stage !== null && isStageDue(schedule, stage, today)) {
       const sends = planSends(await fetchPendingGuests(event.id, stage), now);
       if (sends.length > 0) plans.push({ event, sends });
     }
-    const day = callPhaseDay(schedule, today);
+    const day = callReports ? callPhaseDay(schedule, today) : null;
     if (day !== null) callPhase.push({ event, day });
   }
 
   const planned = plans.reduce((sum, plan) => sum + plan.sends.length, 0);
-  await notifyAdmins(
-    `Today's automation schedule: ${planned} automated messages to send.`,
-  );
-
   let sent = 0;
   let failed = 0;
-  const baseUrl = configuredAppUrl();
-  if (!baseUrl && planned > 0) {
-    console.error("APP_URL is not set; RSVP links can't be built");
-  }
-  for (const { event, sends } of plans) {
-    if (!baseUrl) {
-      failed += sends.length;
-      continue;
+  if (stage !== null && planned > 0) {
+    await notifyAdmins(
+      `${hour}:00 automation: ${planned} ${STAGE_NAMES[stage]} messages to send.`,
+    );
+    const baseUrl = configuredAppUrl();
+    if (!baseUrl) console.error("APP_URL is not set; RSVP links can't be built");
+    for (const { event, sends } of plans) {
+      if (!baseUrl) {
+        failed += sends.length;
+        continue;
+      }
+      try {
+        const result = await sendEventMessages(event, sends, baseUrl);
+        sent += result.sent;
+        failed += result.failed;
+      } catch (error) {
+        console.error(`RSVP automation failed for event ${event.id}`, error);
+        failed += sends.length;
+      }
     }
-    try {
-      const result = await sendEventMessages(event, sends, baseUrl);
-      sent += result.sent;
-      failed += result.failed;
-    } catch (error) {
-      console.error(`RSVP automation failed for event ${event.id}`, error);
-      failed += sends.length;
-    }
+    await notifyAdmins(
+      `Successfully sent ${sent} ${STAGE_NAMES[stage]} messages.` +
+        (failed > 0 ? ` ${failed} could not be sent.` : ""),
+    );
   }
-  await notifyAdmins(
-    `Successfully sent ${sent} automated messages.` +
-      (failed > 0 ? ` ${failed} could not be sent.` : ""),
-  );
 
   const reports: CallPhaseReport[] = [];
   for (const { event, day } of callPhase) {
@@ -441,10 +425,11 @@ export async function runRsvpAutomation(
     );
   }
 
-  await finishRun(today, { planned, sent, failed });
+  await finishRun(today, hour, { planned, sent, failed });
   return {
     status: "done",
     date: today,
+    hour,
     planned,
     sent,
     failed,

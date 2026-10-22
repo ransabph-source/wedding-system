@@ -1,8 +1,11 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { israelDate, runRsvpAutomation } from "@/lib/rsvpAutomation";
+import { isAutomationHour, runRsvpAutomation } from "@/lib/rsvpAutomation";
 import { isRestDay } from "@/lib/restDays";
+import { israelDateTime } from "@/lib/rsvpSchedule";
 
-// Daily RSVP automation (see lib/rsvpAutomation), scheduled in vercel.json.
+// RSVP automation (see lib/rsvpAutomation), called hourly as scheduled in
+// vercel.json. Only the send hours, in Israel time with daylight saving,
+// do anything; the rest return straight away.
 // Vercel Cron calls this with "Authorization: Bearer <CRON_SECRET>"; anything
 // else is turned away, so the messages can't be triggered from outside.
 
@@ -29,14 +32,18 @@ export async function GET(request: Request) {
   // Yom HaShoah, Yom HaZikaron): no guest messages and no admin reports.
   // Each event's timeline pauses over them and resumes on the next working
   // day, so no message or call day is lost.
-  const today = israelDate(new Date());
+  const now = new Date();
+  const { date: today, hour } = israelDateTime(now);
   if (isRestDay(today)) {
     console.log("Rest day - skipping execution");
-    return Response.json({ status: "rest_day", date: today });
+    return Response.json({ status: "rest_day", date: today, hour });
+  }
+  if (!isAutomationHour(hour)) {
+    return Response.json({ status: "idle", date: today, hour });
   }
 
   try {
-    return Response.json(await runRsvpAutomation());
+    return Response.json(await runRsvpAutomation(now));
   } catch (error) {
     console.error("RSVP automation failed", error);
     return Response.json({ error: "Automation failed" }, { status: 500 });

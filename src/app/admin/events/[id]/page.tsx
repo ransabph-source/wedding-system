@@ -16,6 +16,7 @@ import { hasPhoneNumber } from "@/lib/guestRsvp";
 import { guestMatchesQuery } from "@/lib/guestSearch";
 import { renumberTablesAfterDelete } from "@/lib/tableDisplay";
 import type { SeatingTable } from "@/types/seating";
+import AutomationTimeline from "./AutomationTimeline";
 
 // The admin's view of one event: the parts of the managed service couples
 // can't do themselves, i.e. sending WhatsApp RSVP messages and setting up the
@@ -193,6 +194,14 @@ export default function AdminEventPage() {
             </div>
           </div>
         </section>
+
+        {event && (
+          <AutomationTimeline
+            eventId={id}
+            eventDate={event.eventDate}
+            className={sectionClasses}
+          />
+        )}
 
         {messageGuestIds && (
           <SendMessagesModal
