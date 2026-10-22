@@ -29,7 +29,7 @@ import { sendWhatsAppTemplate, sendWhatsAppText } from "@/lib/whatsapp";
 import type { EventRecord } from "@/types/event";
 import type { Guest } from "@/types/guest";
 
-// The RSVP automation, run hourly by Vercel Cron through
+// The RSVP automation, run hourly by an external scheduler through
 // /api/cron/rsvp-automation. Each event follows the timeline in
 // lib/rsvpSchedule: the invitation, two reminders and three call phase days,
 // all on working days and all done by T-7. Each message goes out at its own

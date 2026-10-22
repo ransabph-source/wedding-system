@@ -3,10 +3,11 @@ import { isAutomationHour, runRsvpAutomation } from "@/lib/rsvpAutomation";
 import { isRestDay } from "@/lib/restDays";
 import { israelDateTime } from "@/lib/rsvpSchedule";
 
-// RSVP automation (see lib/rsvpAutomation), called hourly as scheduled in
-// vercel.json. Only the send hours, in Israel time with daylight saving,
-// do anything; the rest return straight away.
-// Vercel Cron calls this with "Authorization: Bearer <CRON_SECRET>"; anything
+// RSVP automation (see lib/rsvpAutomation), called hourly by an external
+// scheduler (e.g. cron-job.org; Vercel Hobby only allows daily crons). Only
+// the send hours, in Israel time with daylight saving, do anything; the rest
+// return straight away.
+// The scheduler must send "Authorization: Bearer <CRON_SECRET>"; anything
 // else is turned away, so the messages can't be triggered from outside.
 
 // Sending a day's messages can take a while.
