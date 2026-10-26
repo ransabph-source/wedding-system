@@ -19,7 +19,7 @@ interface SendMessagesModalProps {
   onClose: () => void;
 }
 
-type Feedback = { tone: "success" | "error"; text: string } | null;
+type Feedback = { tone: "success" | "warning" | "error"; text: string } | null;
 
 const ERROR_MESSAGES: Record<
   Extract<SendMessagesResult, { ok: false }>["reason"],
@@ -31,6 +31,16 @@ const ERROR_MESSAGES: Record<
   invalid: "הפרטים שהוזנו אינם תקינים.",
   rate_limited: "נשלחו יותר מדי הודעות נסיון. נסו שוב בעוד מספר דקות.",
   send_failed: "WhatsApp לא אישר את שליחת ההודעות. נסו שוב מאוחר יותר.",
+  send_unconfirmed:
+    "לא התקבל אישור מ-WhatsApp. ייתכן שההודעה בכל זאת נשלחה – בדקו בטלפון לפני שליחה חוזרת.",
+};
+
+const FEEDBACK_CLASSES: Record<NonNullable<Feedback>["tone"], string> = {
+  success:
+    "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300",
+  warning:
+    "bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
+  error: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
 // Guests who haven't answered yet, whether or not they were already contacted.
@@ -50,12 +60,8 @@ function FeedbackMessage({ feedback }: { feedback: Feedback }) {
   if (!feedback) return null;
   return (
     <p
-      role={feedback.tone === "error" ? "alert" : "status"}
-      className={`rounded-lg px-3 py-2 text-sm font-medium ${
-        feedback.tone === "success"
-          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300"
-          : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
-      }`}
+      role={feedback.tone === "success" ? "status" : "alert"}
+      className={`rounded-lg px-3 py-2 text-sm font-medium ${FEEDBACK_CLASSES[feedback.tone]}`}
     >
       {feedback.text}
     </p>
@@ -136,12 +142,28 @@ export default function SendMessagesModal({
         result.failed.length > 0
           ? ` השליחה נכשלה עבור: ${result.failed.join(", ")}.`
           : "";
+      // Not failures: the message may have arrived, so admins are told not
+      // to send these guests another one.
+      const unconfirmedText =
+        result.unconfirmed.length > 0
+          ? ` לא התקבל אישור מ-WhatsApp עבור: ${result.unconfirmed.join(", ")}. ייתכן שההודעה הגיעה אליהם – אין לשלוח להם שוב.`
+          : "";
+      const anySent = result.sent > 0 || result.unconfirmed.length > 0;
       setSendFeedback({
-        tone: result.sent > 0 && result.failed.length === 0 ? "success" : "error",
-        text:
-          result.sent > 0
-            ? `הודעות WhatsApp נשלחו ל-${result.sent} אורחים.${skippedText}${failedText}`
-            : `לא נשלחו הודעות.${skippedText}${failedText}`,
+        tone:
+          result.failed.length > 0 || !anySent
+            ? "error"
+            : result.unconfirmed.length > 0
+              ? "warning"
+              : "success",
+        text: (
+          (result.sent > 0
+            ? `הודעות WhatsApp נשלחו ל-${result.sent} אורחים.`
+            : anySent
+              ? ""
+              : "לא נשלחו הודעות.") +
+          `${skippedText}${failedText}${unconfirmedText}`
+        ).trim(),
       });
     } catch (error) {
       console.error(error);
@@ -161,7 +183,7 @@ export default function SendMessagesModal({
         result.ok
           ? { tone: "success", text: "הודעת הנסיון נשלחה ב-WhatsApp." }
           : {
-              tone: "error",
+              tone: result.reason === "send_unconfirmed" ? "warning" : "error",
               text:
                 result.reason === "invalid"
                   ? "מספר הטלפון אינו תקין."

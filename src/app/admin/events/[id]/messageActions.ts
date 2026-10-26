@@ -32,6 +32,9 @@ export type SendMessagesResult =
       skipped: string[];
       // Guests WhatsApp didn't accept the message for.
       failed: string[];
+      // Guests WhatsApp never answered for (e.g. a timeout). The message may
+      // have arrived, so they're treated as messaged and shouldn't be resent.
+      unconfirmed: string[];
     }
   | {
       ok: false;
@@ -40,7 +43,8 @@ export type SendMessagesResult =
         | "not_configured"
         | "invalid"
         | "rate_limited"
-        | "send_failed";
+        | "send_failed"
+        | "send_unconfirmed";
     };
 
 const MAX_BATCH_SIZE = 2000;
@@ -135,11 +139,13 @@ export async function sendRsvpMessages(
   }
 
   if (recipients.length === 0) {
-    return { ok: true, sent: 0, skipped, failed: [] };
+    return { ok: true, sent: 0, skipped, failed: [], unconfirmed: [] };
   }
 
   const sentIds: string[] = [];
+  const unconfirmedIds: string[] = [];
   const failed: string[] = [];
+  const unconfirmed: string[] = [];
   for (let i = 0; i < recipients.length; i += SEND_CONCURRENCY) {
     const batch = recipients.slice(i, i + SEND_CONCURRENCY);
     const results = await Promise.all(
@@ -147,7 +153,10 @@ export async function sendRsvpMessages(
     );
     results.forEach((result, j) => {
       if (result.ok) sentIds.push(batch[j].guestId);
-      else if (result.reason === "invalid_number") skipped.push(batch[j].name);
+      else if (result.reason === "unknown") {
+        unconfirmedIds.push(batch[j].guestId);
+        unconfirmed.push(batch[j].name);
+      } else if (result.reason === "invalid_number") skipped.push(batch[j].name);
       else failed.push(batch[j].name);
     });
   }
@@ -155,15 +164,17 @@ export async function sendRsvpMessages(
   // Replies are matched to guests by last_contacted_at, so only guests who
   // were actually sent a message are stamped.
   // They also count as invited, so the automation sends them reminders
-  // rather than a second invitation.
-  if (sentIds.length > 0) {
-    await stampLastContacted(eventId, sentIds);
-    await markAutomationInvited(eventId, sentIds);
+  // rather than a second invitation. Unconfirmed sends may have arrived, so
+  // they count as sent here too.
+  const contactedIds = [...sentIds, ...unconfirmedIds];
+  if (contactedIds.length > 0) {
+    await stampLastContacted(eventId, contactedIds);
+    await markAutomationInvited(eventId, contactedIds);
   }
-  if (sentIds.length === 0 && failed.length > 0) {
+  if (contactedIds.length === 0 && failed.length > 0) {
     return { ok: false, reason: "send_failed" };
   }
-  return { ok: true, sent: sentIds.length, skipped, failed };
+  return { ok: true, sent: sentIds.length, skipped, failed, unconfirmed };
 }
 
 export async function sendTestMessage(
@@ -200,8 +211,10 @@ export async function sendTestMessage(
           ? "invalid"
           : result.reason === "not_configured"
             ? "not_configured"
-            : "send_failed",
+            : result.reason === "unknown"
+              ? "send_unconfirmed"
+              : "send_failed",
     };
   }
-  return { ok: true, sent: 1, skipped: [], failed: [] };
+  return { ok: true, sent: 1, skipped: [], failed: [], unconfirmed: [] };
 }
