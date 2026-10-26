@@ -10,9 +10,16 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const GRAPH_API_VERSION = process.env.WHATSAPP_API_VERSION?.trim() || "v23.0";
 const SEND_TIMEOUT_MS = 15_000;
 
+// "failed" means Meta turned the message down, so it wasn't sent. "unknown"
+// means we never got Meta's answer (a timeout, a dropped connection or a
+// server error on Meta's side): the message may well have gone out, so
+// callers mustn't assume it didn't.
 export type WhatsAppSendResult =
   | { ok: true; messageId: string | null }
-  | { ok: false; reason: "not_configured" | "invalid_number" | "failed" };
+  | {
+      ok: false;
+      reason: "not_configured" | "invalid_number" | "failed" | "unknown";
+    };
 
 // Meta wants international digits without "+". Israeli local numbers
 // ("050-1234567") get their leading 0 swapped for 972.
@@ -65,7 +72,10 @@ async function postMessage(
         `WhatsApp send responded ${response.status}`,
         await response.text().catch(() => ""),
       );
-      return { ok: false, reason: "failed" };
+      return {
+        ok: false,
+        reason: response.status >= 500 ? "unknown" : "failed",
+      };
     }
     const data = (await response.json().catch(() => null)) as {
       messages?: { id?: string }[];
@@ -73,7 +83,7 @@ async function postMessage(
     return { ok: true, messageId: data?.messages?.[0]?.id ?? null };
   } catch (error) {
     console.error("WhatsApp send request failed", error);
-    return { ok: false, reason: "failed" };
+    return { ok: false, reason: "unknown" };
   }
 }
 

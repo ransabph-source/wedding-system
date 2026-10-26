@@ -46,7 +46,10 @@ import type { Guest } from "@/types/guest";
 // at that message's hour. Each guest gets at most one message per run, at
 // least MIN_HOURS_BETWEEN_MESSAGES after they were last messaged, and their
 // rsvp_automation_stage is raised before sending, so no message goes out
-// twice. Messages stop when the call phase starts.
+// twice. Only a send Meta turned down puts the guest back for a retry; when
+// Meta's answer never came (a timeout or a server error) the message may
+// have arrived, so it counts as sent and is never repeated. Messages stop
+// when the call phase starts.
 //
 // The admins (ADMIN_WHATSAPP_NUMBER) get a WhatsApp report before and after
 // each run that has messages to send, plus one at CALL_REPORT_HOUR per event
@@ -95,6 +98,8 @@ export type RsvpAutomationSummary =
       planned: number;
       sent: number;
       failed: number;
+      // Sent without Meta confirming it; not retried.
+      unconfirmed: number;
       callPhaseEvents: number;
     };
 
@@ -278,9 +283,10 @@ async function sendEventMessages(
   event: EventRecord,
   sends: PlannedSend[],
   baseUrl: string,
-): Promise<{ sent: number; failed: number }> {
+): Promise<{ sent: number; failed: number; unconfirmed: number }> {
   let sent = 0;
   let failed = 0;
+  let unconfirmed = 0;
   const steps = new Map<string, PlannedSend[]>();
   for (const send of sends) {
     const key = `${send.from}-${send.to}`;
@@ -302,6 +308,8 @@ async function sendEventMessages(
     );
     const recipients = batch.filter((send) => claimed.has(send.guest.id));
     const sentIds: string[] = [];
+    // Possibly delivered: they keep their new stage, like the sent ones.
+    const unconfirmedIds: string[] = [];
     const retryIds: string[] = [];
     for (let i = 0; i < recipients.length; i += SEND_CONCURRENCY) {
       const chunk = recipients.slice(i, i + SEND_CONCURRENCY);
@@ -316,6 +324,9 @@ async function sendEventMessages(
       );
       results.forEach((result, j) => {
         if (result.ok) sentIds.push(chunk[j].guest.id);
+        else if (result.reason === "unknown") {
+          unconfirmedIds.push(chunk[j].guest.id);
+        }
         // A number WhatsApp can't take won't work tomorrow either.
         else if (result.reason !== "invalid_number") {
           retryIds.push(chunk[j].guest.id);
@@ -323,12 +334,16 @@ async function sendEventMessages(
       });
     }
 
-    if (sentIds.length > 0) await stampLastContacted(event.id, sentIds);
+    // Stamped too, so their replies are matched and no message follows
+    // within MIN_HOURS_BETWEEN_MESSAGES.
+    const contactedIds = [...sentIds, ...unconfirmedIds];
+    if (contactedIds.length > 0) await stampLastContacted(event.id, contactedIds);
     if (retryIds.length > 0) await releaseGuests(event.id, from, to, retryIds);
     sent += sentIds.length;
-    failed += recipients.length - sentIds.length;
+    unconfirmed += unconfirmedIds.length;
+    failed += recipients.length - contactedIds.length;
   }
-  return { sent, failed };
+  return { sent, failed, unconfirmed };
 }
 
 function adminNumbers(): string[] {
@@ -388,6 +403,7 @@ export async function runRsvpAutomation(
   const planned = plans.reduce((sum, plan) => sum + plan.sends.length, 0);
   let sent = 0;
   let failed = 0;
+  let unconfirmed = 0;
   if (stage !== null && planned > 0) {
     await notifyAdmins(
       `${hour}:00 automation: ${planned} ${STAGE_NAMES[stage]} messages to send.`,
@@ -403,6 +419,7 @@ export async function runRsvpAutomation(
         const result = await sendEventMessages(event, sends, baseUrl);
         sent += result.sent;
         failed += result.failed;
+        unconfirmed += result.unconfirmed;
       } catch (error) {
         console.error(`RSVP automation failed for event ${event.id}`, error);
         failed += sends.length;
@@ -410,7 +427,10 @@ export async function runRsvpAutomation(
     }
     await notifyAdmins(
       `Successfully sent ${sent} ${STAGE_NAMES[stage]} messages.` +
-        (failed > 0 ? ` ${failed} could not be sent.` : ""),
+        (failed > 0 ? ` ${failed} could not be sent.` : "") +
+        (unconfirmed > 0
+          ? ` ${unconfirmed} were sent but WhatsApp didn't confirm them; they won't be resent.`
+          : ""),
     );
   }
 
@@ -433,6 +453,7 @@ export async function runRsvpAutomation(
     planned,
     sent,
     failed,
+    unconfirmed,
     callPhaseEvents: reports.length,
   };
 }
