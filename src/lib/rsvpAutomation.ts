@@ -1,7 +1,7 @@
 import "server-only";
 import { eventFromRow, type EventRow, type GuestRow } from "@/lib/db/mappers";
 import { isGuestRsvpOpen } from "@/lib/eventPhaseRules";
-import { normalizePhone } from "@/lib/guestRsvp";
+import { normalizePhone, wasRecentlyMessaged } from "@/lib/guestRsvp";
 import {
   configuredAppUrl,
   ID_CHUNK_SIZE,
@@ -55,8 +55,6 @@ import type { Guest } from "@/types/guest";
 // each run that has messages to send, plus one at CALL_REPORT_HOUR per event
 // in its call phase with the guests still pending that day.
 
-// Less than the 3 days between steps, so cron timing jitter never skips one.
-const MIN_HOURS_BETWEEN_MESSAGES = 36;
 // Supabase returns at most this many rows per request.
 const PAGE_SIZE = 1000;
 // Longer than the route's maxDuration, so a live run is never taken over.
@@ -218,15 +216,12 @@ async function countPendingGuests(eventId: string): Promise<number> {
 }
 
 function planSends(guests: AutomationGuestRow[], now: Date): PlannedSend[] {
-  const contactedBefore =
-    now.getTime() - MIN_HOURS_BETWEEN_MESSAGES * 3_600_000;
   return guests
     .filter(
       (guest) =>
         guest.rsvp_token &&
         normalizePhone(guest.phone ?? "").length >= MIN_PHONE_DIGITS &&
-        (!guest.last_contacted_at ||
-          Date.parse(guest.last_contacted_at) <= contactedBefore),
+        !wasRecentlyMessaged(guest.last_contacted_at, now.getTime()),
     )
     .map((guest) => ({
       guest,

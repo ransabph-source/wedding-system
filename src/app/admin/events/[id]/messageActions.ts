@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { getCurrentUser } from "@/lib/auth";
 import { getEvent } from "@/lib/db/events";
 import { guestFromRow, type GuestRow } from "@/lib/db/mappers";
-import { normalizePhone } from "@/lib/guestRsvp";
+import { normalizePhone, wasRecentlyMessaged } from "@/lib/guestRsvp";
 import { createRateLimiter } from "@/lib/rateLimit";
 import {
   configuredAppUrl,
@@ -30,11 +30,16 @@ export type SendMessagesResult =
       sent: number;
       // Selected guests that weren't sent: no phone number, or not saved yet.
       skipped: string[];
+      // Selected guests left out because they were messaged within
+      // MIN_HOURS_BETWEEN_MESSAGES.
+      recent: string[];
       // Guests WhatsApp didn't accept the message for.
       failed: string[];
       // Guests WhatsApp never answered for (e.g. a timeout). The message may
       // have arrived, so they're treated as messaged and shouldn't be resent.
       unconfirmed: string[];
+      // Guests now counted as messaged (sent or unconfirmed).
+      contactedIds: string[];
     }
   | {
       ok: false;
@@ -119,7 +124,14 @@ export async function sendRsvpMessages(
   const baseUrl = await appBaseUrl();
   const recipients: Recipient[] = [];
   const skipped: string[] = [];
+  const recent: string[] = [];
+  const now = Date.now();
   for (const guest of rows.map(guestFromRow)) {
+    // Checked here too, since the dialog's guest list may be out of date.
+    if (wasRecentlyMessaged(guest.lastContactedAt, now)) {
+      recent.push(guest.name);
+      continue;
+    }
     const phone = normalizePhone(guest.phone ?? "");
     if (phone.length < MIN_PHONE_DIGITS || !guest.rsvpToken) {
       skipped.push(guest.name);
@@ -139,7 +151,15 @@ export async function sendRsvpMessages(
   }
 
   if (recipients.length === 0) {
-    return { ok: true, sent: 0, skipped, failed: [], unconfirmed: [] };
+    return {
+      ok: true,
+      sent: 0,
+      skipped,
+      recent,
+      failed: [],
+      unconfirmed: [],
+      contactedIds: [],
+    };
   }
 
   const sentIds: string[] = [];
@@ -174,7 +194,15 @@ export async function sendRsvpMessages(
   if (contactedIds.length === 0 && failed.length > 0) {
     return { ok: false, reason: "send_failed" };
   }
-  return { ok: true, sent: sentIds.length, skipped, failed, unconfirmed };
+  return {
+    ok: true,
+    sent: sentIds.length,
+    skipped,
+    recent,
+    failed,
+    unconfirmed,
+    contactedIds,
+  };
 }
 
 export async function sendTestMessage(
@@ -216,5 +244,13 @@ export async function sendTestMessage(
               : "send_failed",
     };
   }
-  return { ok: true, sent: 1, skipped: [], failed: [], unconfirmed: [] };
+  return {
+    ok: true,
+    sent: 1,
+    skipped: [],
+    recent: [],
+    failed: [],
+    unconfirmed: [],
+    contactedIds: [],
+  };
 }

@@ -6,7 +6,11 @@ import {
   sendTestMessage,
   type SendMessagesResult,
 } from "@/app/admin/events/[id]/messageActions";
-import { hasPhoneNumber } from "@/lib/guestRsvp";
+import {
+  hasPhoneNumber,
+  MIN_HOURS_BETWEEN_MESSAGES,
+  wasRecentlyMessaged,
+} from "@/lib/guestRsvp";
 import type { Guest } from "@/types/guest";
 
 type Audience = "selected" | "pending" | "all";
@@ -42,6 +46,15 @@ const FEEDBACK_CLASSES: Record<NonNullable<Feedback>["tone"], string> = {
     "bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
   error: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
+
+// Recently messaged guests named in the dialog; the rest are counted.
+const MAX_NAMES_SHOWN = 5;
+
+function nameList(guests: Guest[]): string {
+  const names = guests.slice(0, MAX_NAMES_SHOWN).map((guest) => guest.name);
+  const more = guests.length - names.length;
+  return names.join(", ") + (more > 0 ? ` ועוד ${more}` : "");
+}
 
 // Guests who haven't answered yet, whether or not they were already contacted.
 function isAwaitingAnswer(guest: Guest) {
@@ -101,11 +114,26 @@ export default function SendMessagesModal({
   const [testPhone, setTestPhone] = useState("");
   const [testing, setTesting] = useState(false);
   const [testFeedback, setTestFeedback] = useState<Feedback>(null);
+  // Fixed when the dialog opens, which is fine for something this short-lived.
+  const [now] = useState(() => Date.now());
+  // Messaged from this dialog; the guests prop may not show it yet.
+  const [messagedIds, setMessagedIds] = useState<Set<string>>(() => new Set());
+
+  // Left out so a guest isn't messaged twice, e.g. after a send WhatsApp
+  // didn't confirm. The server enforces this too.
+  const isRecentlyMessaged = (guest: Guest) =>
+    messagedIds.has(guest.id) || wasRecentlyMessaged(guest.lastContactedAt, now);
 
   const recipients =
     audiences.find((option) => option.id === audience)?.guests ?? [];
   const withoutPhone = recipients.filter((guest) => !hasPhoneNumber(guest));
-  const sendableCount = recipients.length - withoutPhone.length;
+  const recentlyMessaged = recipients.filter(
+    (guest) => hasPhoneNumber(guest) && isRecentlyMessaged(guest),
+  );
+  const sendable = recipients.filter(
+    (guest) => hasPhoneNumber(guest) && !isRecentlyMessaged(guest),
+  );
+  const sendableCount = sendable.length;
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -128,15 +156,20 @@ export default function SendMessagesModal({
     try {
       const result = await sendRsvpMessages(
         eventId,
-        recipients.filter(hasPhoneNumber).map((guest) => guest.id),
+        sendable.map((guest) => guest.id),
       );
       if (!result.ok) {
         setSendFeedback({ tone: "error", text: ERROR_MESSAGES[result.reason] });
         return;
       }
+      setMessagedIds((prev) => new Set([...prev, ...result.contactedIds]));
       const skippedText =
         result.skipped.length > 0
           ? ` ${result.skipped.length} אורחים דולגו (ללא מספר טלפון תקין או שטרם נשמרו).`
+          : "";
+      const recentText =
+        result.recent.length > 0
+          ? ` ${result.recent.length} אורחים לא קיבלו הודעה כי כבר נשלחה אליהם הודעה ב-${MIN_HOURS_BETWEEN_MESSAGES} השעות האחרונות.`
           : "";
       const failedText =
         result.failed.length > 0
@@ -162,7 +195,7 @@ export default function SendMessagesModal({
             : anySent
               ? ""
               : "לא נשלחו הודעות.") +
-          `${skippedText}${failedText}${unconfirmedText}`
+          `${skippedText}${recentText}${failedText}${unconfirmedText}`
         ).trim(),
       });
     } catch (error) {
@@ -305,6 +338,14 @@ export default function SendMessagesModal({
                 {withoutPhone.length === 1
                   ? `${withoutPhone[0].name} ללא מספר טלפון ולא יקבל/תקבל הודעה.`
                   : `${withoutPhone.length} אורחים ללא מספר טלפון ולא יקבלו הודעה.`}
+              </p>
+            )}
+
+            {recentlyMessaged.length > 0 && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {recentlyMessaged.length === 1
+                  ? `${recentlyMessaged[0].name} קיבל/ה הודעה ב-${MIN_HOURS_BETWEEN_MESSAGES} השעות האחרונות ולא יקבל/תקבל הודעה נוספת עכשיו.`
+                  : `${recentlyMessaged.length} אורחים קיבלו הודעה ב-${MIN_HOURS_BETWEEN_MESSAGES} השעות האחרונות ולא יקבלו הודעה נוספת עכשיו: ${nameList(recentlyMessaged)}.`}
               </p>
             )}
 

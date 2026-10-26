@@ -32,6 +32,22 @@ export function normalizePhone(value: string): string {
   return digits.startsWith("972") ? `0${digits.slice(3)}` : digits;
 }
 
+// No guest gets another RSVP message within this many hours of the last one
+// (sent, or possibly delivered without WhatsApp confirming), whether the
+// automation or an admin sends it. Less than the 3 days between automation
+// steps, so cron timing jitter never skips one.
+export const MIN_HOURS_BETWEEN_MESSAGES = 36;
+
+export function wasRecentlyMessaged(
+  lastContactedAt: string | null | undefined,
+  now: number,
+): boolean {
+  if (!lastContactedAt) return false;
+  return (
+    now - Date.parse(lastContactedAt) < MIN_HOURS_BETWEEN_MESSAGES * 3_600_000
+  );
+}
+
 // Guests without a usable phone number can't receive digital RSVPs.
 export function hasPhoneNumber(guest: Guest): boolean {
   return /\d/.test(guest.phone ?? "");
